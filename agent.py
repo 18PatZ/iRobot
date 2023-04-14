@@ -169,6 +169,11 @@ def beep3():
     command_queue.append([141, 2])
 
 
+def send_commands():
+    global command_queue
+    for command in command_queue:
+        ser.write(bytearray(command))
+    del command_queue[:]
 
 
 stage = -1
@@ -186,7 +191,7 @@ def plan(action, duration):
 
 
 #####
-plan((lambda: start_mode() or safe_mode() or register_beeps() or beep(0)), 2)
+# plan((lambda: start_mode() or safe_mode() or register_beeps() or beep(0)), 2)
 # d = 2
 # dm = 3
 # dt = 1.0/(3.0/2.0)
@@ -224,22 +229,15 @@ time_step = 5 # seconds
 travel_distance = 500
 current_heading = 0
 
-start = time.time()
+start_mode()
+safe_mode()
+register_beeps()
+beep(0)
+send_commands()
+
+time.sleep(2)
+
 while True:
-    t = time.time() - start
-
-
-    if stage < len(stages)-1:
-        next_stage = stages[stage + 1]
-        if next_stage['time'] <= t:
-            next_stage['action']()
-            stage += 1
-
-    for command in command_queue:
-        ser.write(bytearray(command))
-    del command_queue[:]
-    
-
     line = raw_input("Enter action: ")
 
     action = line.lower()
@@ -249,17 +247,65 @@ while True:
         time_to_turn = 2 #replace
         turn_speed = 500 #need to make negative if turning other way
         
-        last_action_time = t
-        plan(lambda: beep(2) or turn(speed = turn_speed), time_to_turn)
+        beep(2)
+        turn(speed = turn_speed)
+        send_commands()
+
+        time.sleep(time_to_turn)
         
         time_to_drive = 2 #replace
         drive_speed = 100 # change this based on time to turn, so that it reaches the end after full timestep
-        plan(lambda: drive(speed = drive_speed, turn_radius = None), time_to_drive)
+        
+        drive(speed = drive_speed, turn_radius = None)
+        send_commands()
 
-        current_heading = new_heading #update belief
+        time.sleep(time_to_drive)
 
+        stop_bot()
+        send_commands()
     else:
-        print("Not found.")
+        print("Action not found.")
 
-    time.sleep(0.010)
+
+
+
+# start = time.time()
+# while True:
+#     t = time.time() - start
+
+
+#     if stage < len(stages)-1:
+#         next_stage = stages[stage + 1]
+#         print(next_stage['time'],'vs',t)
+#         if next_stage['time'] <= t:
+#             next_stage['action']()
+#             stage += 1
+
+#     for command in command_queue:
+#         ser.write(bytearray(command))
+#     del command_queue[:]
+    
+
+#     line = raw_input("Enter action: ")
+
+#     action = line.lower()
+#     if action in action_headings:
+#         new_heading = action_headings[action]
+
+#         time_to_turn = 2 #replace
+#         turn_speed = 500 #need to make negative if turning other way
+        
+#         last_action_time = t
+#         plan(lambda: beep(2) or turn(speed = turn_speed), time_to_turn)
+        
+#         time_to_drive = 2 #replace
+#         drive_speed = 100 # change this based on time to turn, so that it reaches the end after full timestep
+#         plan(lambda: drive(speed = drive_speed, turn_radius = None), time_to_drive)
+
+#         current_heading = new_heading #update belief
+
+#     else:
+#         print("Not found.")
+
+#     time.sleep(0.010)
 ser.close()
