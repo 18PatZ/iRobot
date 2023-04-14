@@ -1,6 +1,6 @@
 import socket
 
-HOST = "127.0.0.1" # Standard loopback interface address (localhost)
+HOST = "0.0.0.0" # Standard loopback interface address (localhost)
 PORT = 6666
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
