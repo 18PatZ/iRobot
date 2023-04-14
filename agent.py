@@ -228,6 +228,18 @@ start = time.time()
 while True:
     t = time.time() - start
 
+
+    if stage < len(stages)-1:
+        next_stage = stages[stage + 1]
+        if next_stage['time'] <= t:
+            next_stage['action']()
+            stage += 1
+
+    for command in command_queue:
+        ser.write(bytearray(command))
+    del command_queue[:]
+    
+
     line = raw_input("Enter action: ")
 
     action = line.lower()
@@ -248,17 +260,6 @@ while True:
 
     else:
         print("Not found.")
-
-
-    if stage < len(stages)-1:
-        next_stage = stages[stage + 1]
-        if next_stage['time'] <= t:
-            next_stage['action']()
-            stage += 1
-
-    for command in command_queue:
-        ser.write(bytearray(command))
-    del command_queue[:]
 
     time.sleep(0.010)
 ser.close()
