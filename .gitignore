@@ -1,0 +1,6 @@
+camera/calibration.pckl
+camera/input/*
+camera/output/*
+camera/test/input/*
+camera/test/output/*
+camera/generation/tags/*
