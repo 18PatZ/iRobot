@@ -10,11 +10,14 @@ import cv2
 import time
 import os
 
+import argparse
+from cameraHandler import run_camera_loop
+
+
 path = "./output"
 if not os.path.exists(path):
     os.makedirs(path)
 
-cam = cv2.VideoCapture(0)
 
 prev_frame_time = time.time()
 frame = 0
@@ -22,9 +25,10 @@ frame = 0
 interval = 0.5 # per second
 interval_frames = int(interval * 30) # 30 fps
 
-while(cam.isOpened()):
-    # Capturing each frame of our video stream
-    ret, img = cam.read()
+
+def process_frame(img):
+    global frame
+    global prev_frame_time
 
     frame += 1
     if frame % interval_frames == 0:
@@ -44,6 +48,8 @@ while(cam.isOpened()):
 
     # Exit at the end of the video on the 'q' keypress
     if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+        return True
+    return False
 
-cv2.destroyAllWindows()
+
+run_camera_loop(process_frame)
