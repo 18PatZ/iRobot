@@ -244,8 +244,24 @@ while True:
     if action in action_headings:
         new_heading = action_headings[action]
 
-        time_to_turn = 2 #replace
-        turn_speed = 500 #need to make negative if turning other way
+        # Get amount to turn
+        degreesToTurn = new_heading - current_heading
+
+        # Correct 270 degrees in one direction to 90 degrees in other dir
+        if(degreesToTurn == 270):
+            degreesToTurn = -90
+        elif(degreesToTurn == -270):
+            degreesToTurn = 90
+
+        # Measured about 187deg/s when turning at full speed
+        # Calculated 220deg/s when turning at full speed
+        # May need to change the 190 below for more/less uncertainty
+        #
+        #  degrees      1      degrees   seconds
+        #          X ------- =         X ------- = seconds
+        #            deg/sec             degrees
+        time_to_turn = degreesToTurn / 190
+        turn_speed = 500 * (-1 if(degreesToTurn < 0) else 1) # need to make negative if turning other way
         
         beep(2)
         turn(speed = turn_speed)
@@ -253,8 +269,8 @@ while True:
 
         time.sleep(time_to_turn)
         
-        time_to_drive = 2 #replace
-        drive_speed = 100 # change this based on time to turn, so that it reaches the end after full timestep
+        time_to_drive = time_step - time_to_turn # Driving takes rest of timestep
+        drive_speed = travel_distance / time_to_drive # Set speed to reach goal at end of timestep, assumes high accel (d=st)
         
         drive(speed = drive_speed, turn_radius = None)
         send_commands()
