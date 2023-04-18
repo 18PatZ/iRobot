@@ -39,7 +39,7 @@ CHARUCO_BOARD = aruco.CharucoBoard(
         markerLength=(18.83 * 16/20) / 1000,#0.02,
         dictionary=ARUCO_DICT)
 
-markerLength = 50.8#(18.83 * 16/20) / 1000#0.05;
+markerLength = 146.05#50.8#(18.83 * 16/20) / 1000#0.05;
 objPoints = np.array([
     [-markerLength/2, markerLength/2, 0],
     [markerLength/2, markerLength/2, 0],
@@ -48,6 +48,14 @@ objPoints = np.array([
 ])
 
 
+def markerCenter(corners):
+    corners = corners.reshape((4, 2))
+    (topLeft, topRight, bottomRight, bottomLeft) = corners
+
+    cX = int((topLeft[0] + bottomRight[0]) / 2.0)
+    cY = int((topLeft[1] + bottomRight[1]) / 2.0)
+
+    return np.array([cX, cY])
 
 
 def drawArucoMarkers(img, corners, ids):
@@ -107,7 +115,72 @@ def np2list(projected_to_cam):
 
 
 
+corner1 = None
+corner2 = None
+corner1_vals = []
+corner2_vals = []
+
+def vector_avg(vectors, ind):
+    total = np.array([0., 0., 0.])
+    for v in vectors:
+        total += flatten(v[ind])
+    return total / len(vectors)
+
+
+def calculate_error(corner1, corner2, img):
+    c1_center = flatten(corner1[2])
+    c2_center = flatten(corner2[2])
+    span = c2_center - c1_center
+
+    rotationMatrix, _ = cv2.Rodrigues(corner1[1])
+
+    x_in_plane = np.array([1, 0, 0])
+    y_in_plane = np.array([0, 1, 0])
+    
+    inv_rotation = np.linalg.inv(rotationMatrix)
+    
+    diagonal_in_plane = inv_rotation.dot(c2_center - c1_center)
+    sizeX = diagonal_in_plane.dot(x_in_plane)
+    sizeY = diagonal_in_plane.dot(y_in_plane)
+    
+    rvec = corner1[1]
+    tvec = corner1[2]
+    
+    projected, _ = cv2.projectPoints(objectPoints = np.array([[sizeX, sizeY, 0]]), rvec=rvec, tvec=tvec, cameraMatrix=cameraMatrix, distCoeffs=distCoeffs)
+    calculated_c2 = np.array(projected[0][0])
+    # (topLeft, topRight, bottomRight, bottomLeft) = corners
+    real_c2 = markerCenter(corner2[0])
+    if img is not None:
+        cv2.line(img, np2cvi(calculated_c2), np2cvi(real_c2), (0, 0, 255), 4)
+    error = np.linalg.norm(real_c2 - calculated_c2)
+    return error
+
+def get_current_corners():
+    corner1 = None
+    corner2 = None
+    error = None
+
+    if len(corner1_vals) > 0:
+        # corner1 = (corner1_vals[-1][0], vector_avg(corner1_vals, 1), vector_avg(corner1_vals, 2))
+        corner1 = corner1_vals[-1]
+    if len(corner2_vals) > 0:
+        # corner2 = (corner2_vals[-1][0], vector_avg(corner2_vals, 1), vector_avg(corner2_vals, 2))
+        corner2 = corner2_vals[-1]
+
+    if corner1 is not None and corner2 is not None:
+        error = calculate_error(corner1=corner1, corner2=corner2, img=None)
+    return (corner1, corner2, error)
+
+b = None
 def process_frame(img):
+    global corner1
+    global corner2
+    global b
+    # global corner1_vals
+    # global corner2_vals
+
+    # img = cv2.undistort(img, cameraMatrix=cameraMatrix, distCoeffs=distCoeffs)
+
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # Detect Aruco markers
@@ -124,17 +197,16 @@ def process_frame(img):
             cameraMatrix = cameraMatrix,
             distCoeffs = distCoeffs)  
 
+    target = None
+
     if corners is not None and len(corners) > 0:
 
         # Outline all of the markers detected in our image
         img = drawArucoMarkers(img, corners, ids)
         img = aruco.drawDetectedMarkers(img, corners, borderColor=(0, 0, 255))
 
-        #single_rvecs, single_tvecs = aruco.estimatePoseSingleMarkers(corners, 1, cameraMatrix, distCoeffs)  
         corner1 = None
-        corner2 = None         
-        cornerA = None
-        target = None
+        corner2 = None
 
         for (corner, id) in zip(corners, ids):
             retval, rvec, tvec = cv2.solvePnP(
@@ -147,102 +219,115 @@ def process_frame(img):
             data = (corner, rvec, tvec)
             if id == 24:
                 corner1 = data
-            elif id == 69:
+                # corner1_vals.append(data)
+            elif id == 87:
                 corner2 = data
+                # corner2_vals.append(data)
             elif id == 70:
                 target = data
-            elif id == 42:
-                cornerA = data
+
+        # if (corner1 is not None and (corner2 is not None or len(corner2_vals) > 0)) or corner2 is not None and (corner1 is not None or len(corner1_vals) > 0):
+        if corner1 is not None and corner2 is not None:
+            curr_corner1, curr_corner2, curr_error = get_current_corners()
+
+            error = calculate_error(corner1=corner1, corner2=corner2, img=None)
+            # error = calculate_error(corner1=corner1 if corner1 is not None else corner1_vals[-1], corner2=corner2 if corner2 is not None else corner2_vals[-1], img=img)
+            # print("ATTEMPT ERROR: ", error)
+            
+            if error <= 20 and (curr_corner1 is None or curr_corner2 is None or error <= curr_error): # good, and don't accept higher error
+                print("added",error)
+                corner1_vals.append(corner1)
+                corner2_vals.append(corner2)
+            else:
+                corner1 = None
+                corner2 = None
+
+    corner1, corner2, error = get_current_corners()
+
+    if corner1 is not None and corner2 is not None:
+        print("CURRENT ERROR: ", error)
+
+        rvec = corner1[1]
+        tvec = corner1[2]
         
-        if corner1 is not None and corner2 is not None and target is not None and cornerA is not None:
-            c1_center = flatten(corner1[2])
-            c2_center = flatten(corner2[2])
+        c1_center = flatten(corner1[2])
+        c2_center = flatten(corner2[2])
+        span = c2_center - c1_center
+
+        # print("found", span, np.linalg.norm(span))
+        up = np.array([0, 0, markerLength/2])
+
+        rotationMatrix, _ = cv2.Rodrigues(rvec)
+
+        # inPlane = np.array([np.linalg.norm(horizontal), 0, 0])
+        # rotated = rotationMatrix.dot(inPlane)
+        x_in_plane = np.array([1, 0, 0])
+        y_in_plane = np.array([0, 1, 0])
+        
+        inv_rotation = np.linalg.inv(rotationMatrix)
+        
+        
+        diagonal_in_plane = inv_rotation.dot(c2_center - c1_center)
+        sizeX = diagonal_in_plane.dot(x_in_plane)
+        sizeY = diagonal_in_plane.dot(y_in_plane)
+        gridSize = 7
+
+        # print("Diagonal: ", int(np.linalg.norm(span)), "mm")
+        # print("Size X: ", abs(int(sizeX)), "mm")
+        # print("Size Y: ", abs(int(sizeY)), "mm")
+
+        stepX = sizeX / gridSize
+        stepY = sizeY / gridSize
+
+        gridColor = (255, 255, 0)
+        gridThickness = 3
+        
+        for i in range(gridSize+1):
+            x = i * stepX
+            # draw y line
+            drawProjected(img, [
+                [x, 0, 0],
+                # [x, 0, markerLength/2],
+                # [x, 0, 0],
+                [x, sizeY, 0],
+            ], rvec, tvec, cameraMatrix, distCoeffs, gridColor, gridThickness)
+
+            y = i * stepY
+            # draw x line
+            drawProjected(img, [
+                [0, y, 0],
+                [sizeX, y, 0],
+            ], rvec, tvec, cameraMatrix, distCoeffs, gridColor, gridThickness)
+
+        
+
+        
+        if target is not None:
             targ_center = flatten(target[2])
-            cA_center = flatten(cornerA[2])
-            span = c2_center - c1_center
+            # print(targ_center)
+            target_displacement = targ_center - c1_center
+            target_in_plane = inv_rotation.dot(target_displacement)
+            targX = target_in_plane.dot(x_in_plane)
+            targY = target_in_plane.dot(y_in_plane)
 
-            # print("found", span, np.linalg.norm(span))
-            up = np.array([0, 0, markerLength/2])
+            drawProjected(img, [
+                [0, 0, 0],
+                [0, 0, markerLength/2],
+                [targX, targY, markerLength/2],
+                [targX, targY, 0],
+                [targX, targY, markerLength/2],
+                [sizeX, sizeY, markerLength/2],
+                [sizeX, sizeY, 0],
+                [targX, targY, 0],
+                [0, 0, 0]
+            ], rvec, tvec, cameraMatrix, distCoeffs, (0, 255, 255), 2)
 
-            projected_to_cam, jacobian = cv2.projectPoints(objectPoints = np.array([
-                np.array([0, 0, 0]),
-                up,
-                # up + targ_center - c1_center,
-                # up + c2_center - c1_center,
-                # c2_center - c1_center
-            ]), rvec=corner1[1], tvec=corner1[2], cameraMatrix=cameraMatrix, distCoeffs=distCoeffs)
+            target_error = calculate_error(corner1, target, img=img)
+            # if b is None or target_error <= b:
+            #     b = target_error
+            # print("ERROR TARGET: ", target_error)
+            # print("best", b)
 
-            projected_to_cam2, _ = cv2.projectPoints(objectPoints = np.array([
-                up
-            ]), rvec=target[1], tvec=target[2], cameraMatrix=cameraMatrix, distCoeffs=distCoeffs)
-
-            projected_to_cam3, _ = cv2.projectPoints(objectPoints = np.array([
-                up,
-                np.array([0, 0, 0])
-            ]), rvec=corner2[1], tvec=corner2[2], cameraMatrix=cameraMatrix, distCoeffs=distCoeffs)
-            
-            points = np2list(projected_to_cam)
-            points.extend(np2list(projected_to_cam2))
-            points.extend(np2list(projected_to_cam3))
-
-            rotationMatrix, _ = cv2.Rodrigues(corner1[1])
-
-            horizontal = cA_center - c1_center
-            inPlane = np.array([np.linalg.norm(horizontal), 0, 0])
-            rotated = rotationMatrix.dot(inPlane)
-            
-            inv_rotation = np.linalg.inv(rotationMatrix)
-            unrotated = inv_rotation.dot(horizontal)
-
-            diagonal_in_plane = inv_rotation.dot(c2_center - c1_center)
-            x_in_plane = np.array([1, 0, 0])
-            y_in_plane = np.array([0, 1, 0])
-            sizeX = diagonal_in_plane.dot(x_in_plane)
-            sizeY = diagonal_in_plane.dot(y_in_plane)
-            gridSize = 5
-
-            print("Diagonal: ", int(np.linalg.norm(span)), "mm")
-            print("Size X: ", abs(int(sizeX)), "mm")
-            print("Size Y: ", abs(int(sizeY)), "mm")
-
-            stepX = sizeX / gridSize
-            stepY = sizeY / gridSize
-
-            gridColor = (255, 255, 0)
-            gridThickness = 3
-
-            rvec = corner1[1]
-            tvec = corner1[2]
-            
-            for i in range(gridSize+1):
-                x = i * stepX
-                # draw y line
-                drawProjected(img, [
-                    [x, 0, 0],
-                    [x, sizeY, 0],
-                ], rvec, tvec, cameraMatrix, distCoeffs, gridColor, gridThickness)
-
-                y = i * stepY
-                # draw x line
-                drawProjected(img, [
-                    [0, y, 0],
-                    [sizeX, y, 0],
-                ], rvec, tvec, cameraMatrix, distCoeffs, gridColor, gridThickness)
-
-
-            # proj4, _ = cv2.projectPoints(objectPoints = np.array([
-            #     np.array([0, 0, 0]),
-            #     unrotated,
-            # ]), rvec=corner1[1], tvec=corner1[2], cameraMatrix=cameraMatrix, distCoeffs=distCoeffs)
-            # cv2.line(img, np2cvi(proj4[0][0]), np2cvi(proj4[1][0]), (255, 255, 0), 2)
-
-            # print("c1",horizontal, np.linalg.norm(horizontal))
-            # print("c2",rotated, np.linalg.norm(horizontal - rotated))
-
-            for i in range(len(points) - 1):
-                p1 = points[i]
-                p2 = points[i+1]
-                cv2.line(img, np2cvi(p1), np2cvi(p2), (0, 255, 255), 2)
 
     # Only try to find CharucoBoard if we found markers
     if ids is not None and len(ids) > 10:
