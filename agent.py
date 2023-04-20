@@ -21,9 +21,9 @@ def clamp(val, low, high):
 
 
 def speedToBytes(speed_val):
-    return int16ToBytes(clamp(speed_val, -500, 500))
+    return int16ToBytes(int(clamp(speed_val, -500, 500)))
 def radiusToBytes(radius_val):
-    return int16ToBytes(clamp(radius_val, -2000, 2000))
+    return int16ToBytes(int(clamp(radius_val, -2000, 2000)))
 
 
 def int16ToBytes(val):
@@ -237,7 +237,7 @@ send_commands()
 
 time.sleep(2)
 
-plan = "NSEWNSEW"
+plan = "nse"
 
 while plan != "":
     #line = raw_input("Enter action: ")
@@ -252,7 +252,7 @@ while plan != "":
         degreesToTurn = -90
     elif(degreesToTurn == -270):
         degreesToTurn = 90
-
+    
     # Measured about 187deg/s when turning at full speed
     # Calculated 220deg/s when turning at full speed
     # May need to change the 190 below for more/less uncertainty
@@ -260,18 +260,20 @@ while plan != "":
     #  degrees      1      degrees   seconds
     #          X ------- =         X ------- = seconds
     #            deg/sec             degrees
-    time_to_turn = degreesToTurn / 190
+    time_to_turn = abs(degreesToTurn) / 190.0
     turn_speed = 500 * (-1 if(degreesToTurn < 0) else 1) # need to make negative if turning other way
-    
+    print("Turning from " + str(current_heading) + " to " + str(new_heading) + ". Will turn for " + str(time_to_turn) + "seconds.")    
+
+
     beep(2)
     turn(speed = turn_speed)
-    current_heading = action_headings[new_heading]
+    current_heading = new_heading
     send_commands()
 
     time.sleep(time_to_turn)
     
     time_to_drive = time_step - time_to_turn # Driving takes rest of timestep
-    drive_speed = travel_distance / time_to_drive # Set speed to reach goal at end of timestep, assumes high accel (d=st)
+    drive_speed = int(travel_distance / time_to_drive) # Set speed to reach goal at end of timestep, assumes high accel (d=st)
     
     drive(speed = drive_speed, turn_radius = None)
     send_commands()
