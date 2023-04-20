@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import socket
 import serial
 from threading import Thread
 import time
@@ -112,7 +113,6 @@ def full_mode():
     # Note that charging terminates when you enter Full Mode.
     command_queue.append([132])
 
-
 def drive(speed = 100, turn_radius = None):
     print("Drive " + str(speed) + ("" if turn_radius is None else (" " + str(turn_radius))))
     # Opcode 137: Drive
@@ -125,11 +125,9 @@ def drive(speed = 100, turn_radius = None):
         radius_high_byte, radius_low_byte = radiusToBytes(-turn_radius)
         command_queue.append([137, velocity_high_byte, velocity_low_byte, radius_high_byte, radius_low_byte])
 
-
 def stop_bot():
     print("Stop")
     command_queue.append([137, 0, 0, 0, 0])
-
 
 def turn(speed = 100):
     print("Turn " + str(speed))
@@ -141,7 +139,6 @@ def turn(speed = 100):
     velocity_high_byte, velocity_low_byte = speedToBytes(speed)
     radius_high_byte, radius_low_byte = (255, 255)
     command_queue.append([137, velocity_high_byte, velocity_low_byte, radius_high_byte, radius_low_byte])
-
 
 def register_beeps():
     print("Register beeps")
@@ -161,19 +158,56 @@ def beep(num):
     # Opcode 141: Play Song
     # Need to register with Opcode 140 first!
     command_queue.append([141, num])
+
 def beep2():
     print("Beep 2")
     command_queue.append([141, 1])
+
 def beep3():
     print("Beep 3")
     command_queue.append([141, 2])
-
 
 def send_commands():
     global command_queue
     for command in command_queue:
         ser.write(bytearray(command))
     del command_queue[:]
+
+def plan(action, duration):
+    global last_action_time
+    global stages
+    stages.append({'time': last_action_time, 'action': action})
+    last_action_time += duration
+
+
+#
+# Get current status from camera computer
+#
+"""
+Ask if we could time this by having camera wait until robot asks for update.
+This would be more robust than having the camera computer transmit status on a timer.
+"""
+HOST = "127.0.0.1" # Standard loopback interface address (localhost)
+PORT = 6666
+s = socket.socket()
+print("Connecting to camera at " + HOST + ":" + str(PORT) + "...")
+s.connect((HOST, PORT))
+print("Connected!")
+def getUpdate():
+    global s
+
+    # Get update from camera (returns time interval and current x,  y, and heading)
+    data = s.recv(1024)
+    receivedData = data.decode()
+    #receivedData = "0 1 2 45"
+    splitData = receivedData.split(" ")
+
+    # Respond to camera computer with ACK
+    s.send( ("ACK").encode() )
+    
+    # time_int, x, y, heading. Can wrap with casts like int(), float() if needed
+    return int(splitData[0]), int(splitData[1]), int(splitData[2]), int(splitData[3])
+
 
 
 stage = -1
@@ -183,14 +217,7 @@ last_action_time = 0
 
 stages = []
 
-def plan(action, duration):
-    global last_action_time
-    global stages
-    stages.append({'time': last_action_time, 'action': action})
-    last_action_time += duration
 
-def getUpdate():
-    # Get update from camera
 #####
 # plan((lambda: start_mode() or safe_mode() or register_beeps() or beep(0)), 2)
 # d = 2
@@ -238,50 +265,70 @@ send_commands()
 
 time.sleep(2)
 
-plan = "NSEWNSEW"
+# 'o' indicates NOP
+plan = [{(1,0): ["e", "w"]},
+        {(1,0): ["n", "s", "s"], (0,0): ["o", "s", "s"], (2,0): ["o", "o", "o"]},
+        {(2,0): ["n", "e"], (1, 0): ["o", "e"]},
+        {(1,1): ["n", "w", "s", "e"]}]
 
-while plan != "":
-    #line = raw_input("Enter action: ")
+while plan != []:
+    # Fetch current state action map from plan
+    stride_map, plan = plan[0], plan[1:]
 
-    new_heading, plan = action_headings[plan[0]], plan[1:]
+    # Get current state from camera
+    interval, xPos, yPos, current_heading = getUpdate()
 
-    # Get amount to turn
-    degreesToTurn = new_heading - current_heading
+    # Fetch current policy we'll take
+    policy = stride_map[(xPos, yPos)]
 
-    # Correct 270 degrees in one direction to 90 degrees in other dir
-    if(degreesToTurn == 270):
-        degreesToTurn = -90
-    elif(degreesToTurn == -270):
-        degreesToTurn = 90
+    # Perform each movement in the selected policy
+    while policy != []:
+        # Advance through the policy
+        current_move, policy = policy[0], policy[1:]
 
-    # Measured about 187deg/s when turning at full speed
-    # Calculated 220deg/s when turning at full speed
-    # May need to change the 190 below for more/less uncertainty
-    #
-    #  degrees      1      degrees   seconds
-    #          X ------- =         X ------- = seconds
-    #            deg/sec             degrees
-    time_to_turn = abs(degreesToTurn) / 187.0
-    turn_speed = 500 * (-1 if(degreesToTurn < 0) else 1) # need to make negative if turning other way
-    print("Turning from " + current_heading + " to " + new_heading + ". " + time_to_turn + "s turn.")
+        # Skip movement if given in policy
+        if(current_move == "o"):
+            time.sleep(time_step)
+            continue
 
-    beep(2)
-    turn(speed = turn_speed)
-    current_heading = action_headings[new_heading]
-    send_commands()
+        # Get amount to turn
+        new_heading = action_headings[current_move]
+        degreesToTurn = new_heading - current_heading
 
-    time.sleep(time_to_turn)
-    
-    time_to_drive = time_step - time_to_turn # Driving takes rest of timestep
-    drive_speed = int(travel_distance / time_to_drive) # Set speed to reach goal at end of timestep, assumes high accel (d=st)
-    
-    drive(speed = drive_speed, turn_radius = None)
-    send_commands()
+        # Correct >=270 degrees in one direction to <=90 degrees in other dir
+        if(degreesToTurn >= 270):
+            degreesToTurn = -360 + degreesToTurn
+        elif(degreesToTurn <= -270):
+            degreesToTurn = 360 + degreesToTurn
 
-    time.sleep(time_to_drive)
+        # Measured about 187deg/s when turning at full speed
+        # Calculated 220deg/s when turning at full speed
+        # May need to change the 190 below for more/less uncertainty
+        #
+        #  degrees      1      degrees   seconds
+        #          X ------- =         X ------- = seconds
+        #            deg/sec             degrees
+        time_to_turn = abs(degreesToTurn) / 187.0
+        turn_speed = 500 * (-1 if(degreesToTurn < 0) else 1) # need to make negative if turning other way
+        print("Turning from " + current_heading + " to " + new_heading + ". " + time_to_turn + "s turn.")
 
-    stop_bot()
-    send_commands()
+        beep(2)
+        turn(speed = turn_speed)
+        current_heading = new_heading
+        send_commands()
+
+        time.sleep(time_to_turn)
+        
+        time_to_drive = time_step - time_to_turn # Driving takes rest of timestep
+        drive_speed = int(travel_distance / time_to_drive) # Set speed to reach goal at end of timestep, assumes high accel (d=st)
+        
+        drive(speed = drive_speed, turn_radius = None)
+        send_commands()
+
+        time.sleep(time_to_drive)
+
+        stop_bot()
+        send_commands()
 
 
 
