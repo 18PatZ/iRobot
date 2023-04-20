@@ -225,7 +225,7 @@ action_headings = {
     "s": 180
 }
 
-time_step = 5.0 # seconds
+time_step = 5 # seconds
 travel_distance = 500
 current_heading = 0
 
@@ -260,9 +260,10 @@ while plan != "":
     #  degrees      1      degrees   seconds
     #          X ------- =         X ------- = seconds
     #            deg/sec             degrees
-    time_to_turn = abs(degreesToTurn) / 187.0
+    time_to_turn = abs(degreesToTurn) / 190.0
     turn_speed = 500 * (-1 if(degreesToTurn < 0) else 1) # need to make negative if turning other way
-    print("Turning from " + current_heading + " to " + new_heading + ". " + time_to_turn + "s turn.")
+    print("Turning from " + str(current_heading) + " to " + str(new_heading) + ". Will turn for " + str(time_to_turn) + "seconds.")    
+
 
     beep(2)
     turn(speed = turn_speed)
