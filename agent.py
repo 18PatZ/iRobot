@@ -253,7 +253,7 @@ action_headings = {
     "s": 180
 }
 
-time_step = 5.0 # seconds
+time_step = 5 # seconds
 travel_distance = 500
 current_heading = 0
 
