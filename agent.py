@@ -21,9 +21,9 @@ def clamp(val, low, high):
 
 
 def speedToBytes(speed_val):
-    return int16ToBytes(clamp(speed_val, -500, 500))
+    return int16ToBytes(int(clamp(speed_val, -500, 500)))
 def radiusToBytes(radius_val):
-    return int16ToBytes(clamp(radius_val, -2000, 2000))
+    return int16ToBytes(int(clamp(radius_val, -2000, 2000)))
 
 
 def int16ToBytes(val):
@@ -189,7 +189,8 @@ def plan(action, duration):
     stages.append({'time': last_action_time, 'action': action})
     last_action_time += duration
 
-
+def getUpdate():
+    # Get update from camera
 #####
 # plan((lambda: start_mode() or safe_mode() or register_beeps() or beep(0)), 2)
 # d = 2
