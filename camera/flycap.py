@@ -5,6 +5,7 @@ from PIL import Image
 import cv2.aruco as aruco
 import os
 import pickle
+import math
 
 import argparse
 from cameraHandler import run_camera_loop
@@ -119,6 +120,10 @@ corner1 = None
 corner2 = None
 corner1_vals = []
 corner2_vals = []
+target_id = 70
+obstacle_ids = [66, 42, 69]
+tracking = {}
+
 
 def vector_avg(vectors, ind):
     total = np.array([0., 0., 0.])
@@ -171,11 +176,25 @@ def get_current_corners():
         error = calculate_error(corner1=corner1, corner2=corner2, img=None)
     return (corner1, corner2, error)
 
+def coordsInPlane(centerInWorld, originInWorld, inv_rotation):
+    x_in_plane = np.array([1, 0, 0])
+    y_in_plane = np.array([0, 1, 0])
+
+    targ_center = flatten(centerInWorld)
+    # print(targ_center)
+    target_displacement = targ_center - originInWorld
+    target_in_plane = inv_rotation.dot(target_displacement)
+    targX = target_in_plane.dot(x_in_plane)
+    targY = target_in_plane.dot(y_in_plane)
+
+    return np.array([targX, targY])
+
 b = None
 def process_frame(img):
     global corner1
     global corner2
     global b
+    global tracking
     # global corner1_vals
     # global corner2_vals
 
@@ -209,6 +228,7 @@ def process_frame(img):
         corner2 = None
 
         for (corner, id) in zip(corners, ids):
+            id = id[0]
             retval, rvec, tvec = cv2.solvePnP(
                 objectPoints=objPoints, 
                 imagePoints=corner, 
@@ -223,8 +243,20 @@ def process_frame(img):
             elif id == 87:
                 corner2 = data
                 # corner2_vals.append(data)
-            elif id == 70:
+            elif id == target_id:
                 target = data
+            
+            if id in obstacle_ids or id == target_id:
+                curr_corner1, curr_corner2, curr_error = get_current_corners()
+                if curr_corner1 is not None:
+                    error = calculate_error(corner1=curr_corner1, corner2=data, img=None)
+                    error_old = 0
+                    if id in tracking:
+                        old = (corner, tracking[id][1], tracking[id][2])
+                        error_old = calculate_error(corner1=curr_corner1, corner2=old, img=img)
+                        # print(id, ":", error, "vs", error_old)
+                    if error <= 40 and (id not in tracking or error <= error_old):
+                        tracking[id] = data
 
         # if (corner1 is not None and (corner2 is not None or len(corner2_vals) > 0)) or corner2 is not None and (corner1 is not None or len(corner1_vals) > 0):
         if corner1 is not None and corner2 is not None:
@@ -235,7 +267,7 @@ def process_frame(img):
             # print("ATTEMPT ERROR: ", error)
             
             if error <= 20 and (curr_corner1 is None or curr_corner2 is None or error <= curr_error): # good, and don't accept higher error
-                print("added",error)
+                # print("added",error)
                 corner1_vals.append(corner1)
                 corner2_vals.append(corner2)
             else:
@@ -245,7 +277,7 @@ def process_frame(img):
     corner1, corner2, error = get_current_corners()
 
     if corner1 is not None and corner2 is not None:
-        print("CURRENT ERROR: ", error)
+        # print("CURRENT ERROR: ", error)
 
         rvec = corner1[1]
         tvec = corner1[2]
@@ -277,39 +309,139 @@ def process_frame(img):
         # print("Size Y: ", abs(int(sizeY)), "mm")
 
         stepX = sizeX / gridSize
-        stepY = sizeY / gridSize
+        stepY = (-1 if sizeY < 0 else 1) * abs(stepX)#sizeY / gridSize
+        gridSizeY = math.ceil(abs(sizeY / stepY))#gridSize
+
+        fullSizeY = gridSizeY * stepY
+        
 
         gridColor = (255, 255, 0)
         gridThickness = 3
-        
-        for i in range(gridSize+1):
-            x = i * stepX
-            # draw y line
+
+        for i in range(-1, gridSize+1):
+            gridY = -1
+            gridX = i
             drawProjected(img, [
-                [x, 0, 0],
-                # [x, 0, markerLength/2],
-                # [x, 0, 0],
-                [x, sizeY, 0],
-            ], rvec, tvec, cameraMatrix, distCoeffs, gridColor, gridThickness)
+                [gridX * stepX, gridY * stepY, 0],
+                [(gridX+1) * stepX, gridY * stepY, 0],
+                [(gridX+1) * stepX, (gridY+1) * stepY, 0],
+                [(gridX) * stepX, (gridY+1) * stepY, 0],
+                [gridX * stepX, gridY * stepY, 0]
+            ], rvec, tvec, cameraMatrix, distCoeffs, (0, 0, 255), gridThickness)
 
-            y = i * stepY
-            # draw x line
+            gridY = gridSizeY
+            gridX = i
             drawProjected(img, [
-                [0, y, 0],
-                [sizeX, y, 0],
-            ], rvec, tvec, cameraMatrix, distCoeffs, gridColor, gridThickness)
+                [gridX * stepX, gridY * stepY, 0],
+                [(gridX+1) * stepX, gridY * stepY, 0],
+                [(gridX+1) * stepX, (gridY+1) * stepY, 0],
+                [(gridX) * stepX, (gridY+1) * stepY, 0],
+                [gridX * stepX, gridY * stepY, 0]
+            ], rvec, tvec, cameraMatrix, distCoeffs, (0, 0, 255), gridThickness)
+        for i in range(-1, gridSizeY+1):
+            gridX = -1
+            gridY = i
+            drawProjected(img, [
+                [gridX * stepX, gridY * stepY, 0],
+                [(gridX+1) * stepX, gridY * stepY, 0],
+                [(gridX+1) * stepX, (gridY+1) * stepY, 0],
+                [(gridX) * stepX, (gridY+1) * stepY, 0],
+                [gridX * stepX, gridY * stepY, 0]
+            ], rvec, tvec, cameraMatrix, distCoeffs, (0, 0, 255), gridThickness)
+
+            gridX = gridSize
+            gridY = i
+            drawProjected(img, [
+                [gridX * stepX, gridY * stepY, 0],
+                [(gridX+1) * stepX, gridY * stepY, 0],
+                [(gridX+1) * stepX, (gridY+1) * stepY, 0],
+                [(gridX) * stepX, (gridY+1) * stepY, 0],
+                [gridX * stepX, gridY * stepY, 0]
+            ], rvec, tvec, cameraMatrix, distCoeffs, (0, 0, 255), gridThickness)
+        
+        for i in range(max(gridSize, gridSizeY)+1):
+            if i <= gridSize:
+                x = i * stepX
+                # draw y line
+                drawProjected(img, [
+                    [x, 0, 0],
+                    # [x, 0, markerLength/2],
+                    # [x, 0, 0],
+                    [x, fullSizeY, 0],
+                ], rvec, tvec, cameraMatrix, distCoeffs, gridColor, gridThickness)
+
+            if i <= gridSizeY:
+                y = i * stepY
+                # draw x line
+                drawProjected(img, [
+                    [0, y, 0],
+                    [sizeX, y, 0],
+                ], rvec, tvec, cameraMatrix, distCoeffs, gridColor, gridThickness)
 
         
 
         
+        # if target is not None:
+            # targ_center = flatten(target[2])
+            # # print(targ_center)
+            # target_displacement = targ_center - c1_center
+            # target_in_plane = inv_rotation.dot(target_displacement)
+            # targX = target_in_plane.dot(x_in_plane)
+            # targY = target_in_plane.dot(y_in_plane)
+
+        for obs_id in obstacle_ids:
+            if obs_id in tracking:
+                obstacle = tracking[obs_id]
+                obs_center = coordsInPlane(obstacle[2], c1_center, inv_rotation)
+                # error = calculate_error(corner1, obstacle, img=img)
+                # print("ERROR OBS", error)
+                gridX = int(obs_center[0] / stepX)
+                gridY = int(obs_center[1] / stepY)
+                
+                drawProjected(img, [
+                    [gridX * stepX, gridY * stepY, 0],
+                    [(gridX+1) * stepX, gridY * stepY, 0],
+                    [(gridX+1) * stepX, (gridY+1) * stepY, 0],
+                    [(gridX) * stepX, (gridY+1) * stepY, 0],
+                    [gridX * stepX, gridY * stepY, 0]
+                ], rvec, tvec, cameraMatrix, distCoeffs, (0, 0, 255), gridThickness)
+
+        targetForwardInPlane = None
+        targetAngle = None
         if target is not None:
-            targ_center = flatten(target[2])
-            # print(targ_center)
-            target_displacement = targ_center - c1_center
-            target_in_plane = inv_rotation.dot(target_displacement)
-            targX = target_in_plane.dot(x_in_plane)
-            targY = target_in_plane.dot(y_in_plane)
+            target_rvec = target[1]
+            targ_center = coordsInPlane(target[2], c1_center, inv_rotation)
+            targetRotationMatrix, _ = cv2.Rodrigues(target_rvec)
+            forward = np.array([0, 1, 0])
+            targetForwardInWorld = targetRotationMatrix.dot(forward)
+            targetForwardInPlane = inv_rotation.dot(targetForwardInWorld)
 
+            targetAngle = math.atan2(targetForwardInPlane[0], targetForwardInPlane[1]) * 180 / math.pi
+            print("ANGLE", targetAngle)
+            # print(targetForwardInPlane)
+            # drawProjected(img, [
+            #     [targ_center[0], targ_center[1], 0],
+            #     [targ_center[0] + targetForwardInPlane[0]*markerLength, targ_center[1] + targetForwardInPlane[1]*markerLength, 0],
+            # ], rvec, tvec, cameraMatrix, distCoeffs, (0, 255, 255), 5)
+
+        if target_id in tracking:
+            target = tracking[target_id]
+            targ_center = coordsInPlane(target[2], c1_center, inv_rotation)
+            targX = targ_center[0]
+            targY = targ_center[1]
+            
+            gridX = int(targX / stepX)
+            gridY = int(targY / stepY)
+
+            
+            drawProjected(img, [
+                [gridX * stepX, gridY * stepY, 0],
+                [(gridX+1) * stepX, gridY * stepY, 0],
+                [(gridX+1) * stepX, (gridY+1) * stepY, 0],
+                [(gridX) * stepX, (gridY+1) * stepY, 0],
+                [gridX * stepX, gridY * stepY, 0]
+            ], rvec, tvec, cameraMatrix, distCoeffs, (0, 255, 0), gridThickness)
+            
             drawProjected(img, [
                 [0, 0, 0],
                 [0, 0, markerLength/2],
@@ -323,10 +455,17 @@ def process_frame(img):
             ], rvec, tvec, cameraMatrix, distCoeffs, (0, 255, 255), 2)
 
             target_error = calculate_error(corner1, target, img=img)
+
+            if targetForwardInPlane is not None and targetAngle is not None:
+                drawProjected(img, [
+                    [targ_center[0], targ_center[1], 0],
+                    [targ_center[0] + targetForwardInPlane[0]*markerLength*2, targ_center[1] + targetForwardInPlane[1]*markerLength*2, 0],
+                ], rvec, tvec, cameraMatrix, distCoeffs, (255, 0, 255), 3)
             # if b is None or target_error <= b:
             #     b = target_error
             # print("ERROR TARGET: ", target_error)
             # print("best", b)
+
 
 
     # Only try to find CharucoBoard if we found markers
