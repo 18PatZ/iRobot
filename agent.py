@@ -225,7 +225,7 @@ action_headings = {
     "s": 180
 }
 
-time_step = 5 # seconds
+time_step = 5.0 # seconds
 travel_distance = 500
 current_heading = 0
 
@@ -260,9 +260,10 @@ while plan != "":
     #  degrees      1      degrees   seconds
     #          X ------- =         X ------- = seconds
     #            deg/sec             degrees
-    time_to_turn = degreesToTurn / 190
+    time_to_turn = abs(degreesToTurn) / 187.0
     turn_speed = 500 * (-1 if(degreesToTurn < 0) else 1) # need to make negative if turning other way
-    
+    print("Turning from " + current_heading + " to " + new_heading + ". " + time_to_turn + "s turn.")
+
     beep(2)
     turn(speed = turn_speed)
     current_heading = action_headings[new_heading]
@@ -271,7 +272,7 @@ while plan != "":
     time.sleep(time_to_turn)
     
     time_to_drive = time_step - time_to_turn # Driving takes rest of timestep
-    drive_speed = travel_distance / time_to_drive # Set speed to reach goal at end of timestep, assumes high accel (d=st)
+    drive_speed = int(travel_distance / time_to_drive) # Set speed to reach goal at end of timestep, assumes high accel (d=st)
     
     drive(speed = drive_speed, turn_radius = None)
     send_commands()
