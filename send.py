@@ -64,7 +64,7 @@ while True:
         speed = int(parts[1])
         print("Set speed to " + str(speed) + " millimeters/s") 
         continue
-    if parts[0] == "radius" or parts[0] == "r":
+    if parts[0] == "radius" or parts[0] == "ra":
         radius = int(parts[1])
         print("Set radius to " + str(radius) + " millimeters") 
         continue
