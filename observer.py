@@ -13,7 +13,7 @@ print("Listening for inbound connections")
 conn, addr = s.accept()
 
 #with conn:
-print(f"Connection established from {addr}")
+print("Connection established from " + str(addr))
 
 while True:
     line = input("Enter something to send: ")
