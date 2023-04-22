@@ -187,7 +187,7 @@ def plan(action, duration):
 Ask if we could time this by having camera wait until robot asks for update.
 This would be more robust than having the camera computer transmit status on a timer.
 """
-HOST = "127.0.0.1" # Standard loopback interface address (localhost)
+HOST = "10.224.112.177" # Standard loopback interface address (localhost)
 PORT = 6666
 s = socket.socket()
 print("Connecting to camera at " + HOST + ":" + str(PORT) + "...")
@@ -199,6 +199,9 @@ def getUpdate():
     # Get update from camera (returns time interval and current x,  y, and heading)
     data = s.recv(1024)
     receivedData = data.decode()
+
+    if receivedData == "exit":
+        return (None, None, None, None)
     #receivedData = "0 1 2 45"
     splitData = receivedData.split(" ")
 
@@ -273,20 +276,31 @@ plan = [{(1,0): ["e", "w"]},
 
 while plan != []:
     # Fetch current state action map from plan
-    stride_map, plan = plan[0], plan[1:]
+    #stride_map, plan = plan[0], plan[1:]
 
     # Get current state from camera
     interval, xPos, yPos, current_heading = getUpdate()
 
+    if interval is None:
+        print("Exiting.")
+        s.close()
+        break
+
+    print("Received:", interval, xPos, yPos, current_heading)
+
     # Fetch current policy we'll take
-    policy = stride_map[(xPos, yPos)]
+    if interval >= len(plan)-1:
+        interval = len(plan)-1
+    policy = plan[interval]
+    action_sequence = policy[(xPos, yPos)]
+    print("Executing:", action_sequence)
 
     # Perform each movement in the selected policy
-    while policy != []:
+    while action_sequence != []:
         # Advance through the policy
-        current_move, policy = policy[0], policy[1:]
+        current_move, action_sequence = action_sequence[0], action_sequence[1:]
 
-        # Skip movement if given in policy
+        # Skip movement if no-op action
         if(current_move == "o"):
             time.sleep(time_step)
             continue
@@ -310,7 +324,7 @@ while plan != []:
         #            deg/sec             degrees
         time_to_turn = abs(degreesToTurn) / 187.0
         turn_speed = 500 * (-1 if(degreesToTurn < 0) else 1) # need to make negative if turning other way
-        print("Turning from " + current_heading + " to " + new_heading + ". " + time_to_turn + "s turn.")
+        print("Turning from " + str(current_heading) + " to " + str(new_heading) + ". " + str(time_to_turn) + "s turn.")
 
         beep(2)
         turn(speed = turn_speed)
