@@ -1,3 +1,6 @@
+import sys
+sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+
 # The following code is used to watch a video stream, detect Aruco markers, and use
 # a set of markers to determine the posture of the camera in relation to the plane
 # of markers.

@@ -13,7 +13,7 @@ print("Listening for inbound connections")
 conn, addr = s.accept()
 
 #with conn:
-print(f"Connection established from {addr}")
+print("Connection established from " + str(addr))
 while True:
     data = conn.recv(1024)
     # if not data:

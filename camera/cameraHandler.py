@@ -32,9 +32,16 @@ def run_camera_loop(process_frame):
 
 
 
-    if camera_type == 1: # flycap screen capture
-        corner1 = np.array([613, 85])
-        corner2 = np.array([2212, 1363])
+    if camera_type == 1 or camera_type == 2: # flycap screen capture
+        if camera_type == 1:
+            corner1 = np.array([613, 85])
+            corner2 = np.array([2212, 1363])
+        else:
+            # corner1 = np.array([485, 55+35])
+            # corner2 = np.array([1440, 820+35])
+
+            corner1 = np.array([-250+95, 50+28])
+            corner2 = np.array([-250+95+958, 800])
         dim = corner2 - corner1
 
         monitorOffset = 2560#0
@@ -58,7 +65,7 @@ def run_camera_loop(process_frame):
 
 
 
-    if camera_type == 2: # valve index exterior
+    if camera_type == 3: # valve index exterior
         cam = cv2.VideoCapture(0)
 
         while(cam.isOpened()):
