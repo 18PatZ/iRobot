@@ -1,6 +1,6 @@
 import socket
 
-HOST = "10.224.112.177" # Standard loopback interface address (localhost)
+HOST = "127.0.0.1" # Standard loopback interface address (localhost)
 PORT = 6666
 
 s = socket.socket()
@@ -13,9 +13,16 @@ while True:
 
     s.send(line.encode())
 
-    data = s.recv(1024)
-    received = data.decode()
-    print("Received: " + received)
+    data = s.recv(2)
+    expect = int.from_bytes(data, 'little', signed=False)
+    print("Waiting for", expect, "bytes")
+
+    received = ""
+    while len(received) < expect:
+        data = s.recv(1024)
+        received += data.decode()
+    # print("Received: " + received)
+    print("Received", len(received),"bytes, ending with:",received[-len(line):])
 
     if line == "exit":
         s.close()

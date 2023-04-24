@@ -21,7 +21,8 @@ while True:
     conn.send(line.encode())
 
     data = conn.recv(1024)
-    received = data.decode()
+    received = data
+    # received = data.decode()
     print("Received: " + received)
 
     if line == "exit":

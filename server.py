@@ -20,7 +20,14 @@ while True:
     #     break
     received = data.decode()
     print("Received: " + received)
-    conn.send(("ping " + received).encode())
+
+    to_send = ""
+    for i in range(5000):
+        to_send += received
+    # conn.send(("ping " + received).encode())
+    print("sending back", len(to_send),"bytes")
+    conn.send(len(to_send).to_bytes(2, 'little', signed=False))
+    conn.send(to_send.encode())
 
     if received == "exit":
         conn.close()
