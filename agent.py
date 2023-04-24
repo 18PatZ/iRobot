@@ -4,6 +4,8 @@ import socket
 import serial
 from threading import Thread
 import time
+import json
+from socketUtil import *
 
 port = '/dev/ttyUSB0'
 baud = 57600
@@ -180,48 +182,59 @@ def plan(action, duration):
     last_action_time += duration
 
 
+
+
+
 #
-# Get current status from camera computer
+# Connect to planner and fetch plan
 #
-"""
-Ask if we could time this by having camera wait until robot asks for update.
-This would be more robust than having the camera computer transmit status on a timer.
-"""
-HOST = "10.224.112.177" # Standard loopback interface address (localhost)
-PORT = 6666
-s = socket.socket()
-print("Connecting to camera at " + HOST + ":" + str(PORT) + "...")
-s.connect((HOST, PORT))
+PlannerIp = "127.0.0.1"
+PlannerPort = 6667
+planner = socket.socket()
+
+print("Connecting to planner at " + PlannerIp + ":" + str(PlannerPort) + "...")
+planner.connect((PlannerIp, PlannerPort))
+planner.send("SUBS".encode()) # Request plan
+planJSON = receiveMessage(planner)
+plan = json.loads(planJSON) # Decode plan
+
+
+
+#
+# Get current status from observer
+#
+ObserverIP = "10.224.112.177" # Standard loopback interface address (localhost)
+ObserverPort = 6666
+observer = socket.socket()
+print("Connecting to observer at " + ObserverIP + ":" + str(ObserverPort) + "...")
+observer.connect((ObserverIP, ObserverPort))
 print("Connected!")
 def getUpdate():
-    global s
+    global observer
 
     # Get update from camera (returns time interval and current x,  y, and heading)
-    data = s.recv(1024)
+    data = observer.recv(1024)
     receivedData = data.decode()
 
     if receivedData == "exit":
         return (None, None, None, None)
-    #receivedData = "0 1 2 45"
     splitData = receivedData.split(" ")
 
     # Respond to camera computer with ACK
-    s.send( ("ACK").encode() )
+    observer.send( ("ACK").encode() )
     
-    # time_int, x, y, heading. Can wrap with casts like int(), float() if needed
+    # time_int, x, y, heading
     return int(splitData[0]), int(splitData[1]), int(splitData[2]), int(splitData[3])
 
 
 
 stage = -1
 spd = 300
-
 last_action_time = 0
-
 stages = []
 
 
-#####
+"""
 # plan((lambda: start_mode() or safe_mode() or register_beeps() or beep(0)), 2)
 # d = 2
 # dm = 3
@@ -247,13 +260,14 @@ stages = []
 # plan(lambda: beep(6), 3)
 # plan(lambda: stop_bot(), 3)
 # plan(lambda: passive_mode(), 1)
-####
+
+"""
 
 action_headings = {
-    "n": 0,
-    "w": 270, 
-    "e": 90,
-    "s": 180
+    "NORTH": 0,
+    "WEST": 270, 
+    "EAST": 90,
+    "SOUTH": 180
 }
 
 time_step = 5 # seconds
@@ -269,10 +283,10 @@ send_commands()
 time.sleep(2)
 
 # 'o' indicates NOP
-plan = [{(1,0): ["e", "w"]},
-        {(1,0): ["n", "s", "s"], (0,0): ["o", "s", "s"], (2,0): ["o", "o", "o"]},
-        {(2,0): ["n", "e"], (1, 0): ["o", "e"]},
-        {(1,1): ["n", "w", "s", "e"]}]
+#plan = [{(1,0): ["e", "w"]},
+#        {(1,0): ["n", "s", "s"], (0,0): ["o", "s", "s"], (2,0): ["o", "o", "o"]},
+#        {(2,0): ["n", "e"], (1, 0): ["o", "e"]},
+#        {(1,1): ["n", "w", "s", "e"]}]
 
 while plan != []:
     # Fetch current state action map from plan
@@ -301,7 +315,7 @@ while plan != []:
         current_move, action_sequence = action_sequence[0], action_sequence[1:]
 
         # Skip movement if no-op action
-        if(current_move == "o"):
+        if(current_move == "NO-OP"):
             time.sleep(time_step)
             continue
 
