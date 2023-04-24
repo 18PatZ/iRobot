@@ -17,6 +17,25 @@ from cameraHandler import run_camera_loop
 
 
 
+import socket
+from threading import Thread
+import time
+import json
+from socketUtil import *
+
+HOST = "0.0.0.0" # bind to all interfaces
+PORT = 6666
+
+PLANNER_HOST = "127.0.0.1"
+PLANNER_PORT = 6667
+
+send_grid = False
+grid = None
+plan = None
+
+
+
+
 # Constant parameters used in Aruco methods
 # ARUCO_PARAMETERS = aruco.DetectorParameters()
 # ARUCO_DICT = aruco.getPredefinedDictionary(aruco.DICT_5X5_1000)
