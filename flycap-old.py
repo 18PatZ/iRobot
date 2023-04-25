@@ -12,6 +12,8 @@ import os
 import pickle
 import math
 
+from statistics import median
+
 import argparse
 from cameraHandler import run_camera_loop
 
@@ -26,7 +28,7 @@ from socketUtil import *
 HOST = "0.0.0.0" # bind to all interfaces
 PORT = 6666
 
-PLANNER_HOST = "127.0.0.1"
+PLANNER_HOST = "10.224.123.203"
 PLANNER_PORT = 6667
 
 send_grid = False
@@ -149,9 +151,19 @@ corner2 = None
 corner1_vals = []
 corner2_vals = []
 target_id = 70
-obstacle_ids = [66, 42, 69, 1, 2, 3, 4, 5, 6, 7]
+target_angles = []
+# obstacle_ids = [66, 42, 69, 1, 2, 3, 4, 5, 6, 7]
+
+obstacle_ids = [42, 1, 2, 3, 4, 5]
 tracking = {}
 gridPos = {}
+
+gSizeX = 0
+gSizeY = 0
+
+goalCoords = None
+
+winner = False
 
 
 def vector_avg(vectors, ind):
@@ -230,12 +242,15 @@ def coordsInPlane(centerInWorld, originInWorld, inv_rotation):
 
 def transformGridCoords(pos, sizeX, sizeY):
     (x, y) = pos
-    x, y = y, x
-    sX = sizeY
-    sY = sizeX
+    # x, y = int(y), int(x)
+    x, y = int(x), int(y)
+    # sX = int(sizeY)
+    # sY = int(sizeX)
+    sX = int(sizeX)
+    sY = int(sizeY)
     
     if sX < 0:
-        x += (-sX-1)
+        x = (-sX-1) - x
         sX = -sX
 
     if sY < 0:
@@ -253,6 +268,11 @@ def process_frame(img):
     global gridPos
     global tracking
     global grid
+    global send_grid
+    global gSizeX
+    global gSizeY
+    global goalCoords
+    global winner
     # global corner1_vals
     # global corner2_vals
 
@@ -365,6 +385,8 @@ def process_frame(img):
         sizeY = diagonal_in_plane.dot(y_in_plane)
         gridSize = int(math.floor(abs(sizeX) / 330))#7
 
+        
+
         # print("Diagonal: ", int(np.linalg.norm(span)), "mm")
         # print("Size X: ", abs(int(sizeX)), "mm")
         # print("Size Y: ", abs(int(sizeY)), "mm")
@@ -375,7 +397,8 @@ def process_frame(img):
 
         fullSizeY = gridSizeY * stepY
 
-        
+        gSizeX = np.sign(sizeX) * gridSize
+        gSizeY = np.sign(fullSizeY) * gridSizeY
         
 
         gridColor = (255, 255, 0)
@@ -460,7 +483,7 @@ def process_frame(img):
                 # print("ERROR OBS", error)
                 gridX = int(obs_center[0] / stepX)
                 gridY = int(obs_center[1] / stepY)
-                
+
                 drawProjected(img, [
                     [gridX * stepX, gridY * stepY, 0],
                     [(gridX+1) * stepX, gridY * stepY, 0],
@@ -470,6 +493,17 @@ def process_frame(img):
                 ], rvec, tvec, cameraMatrix, distCoeffs, (0, 0, 255), gridThickness)
 
                 gridPos[obs_id] = (gridX, gridY)
+
+        if goalCoords is not None:
+            gridX = goalCoords[0]
+            gridY = goalCoords[1]
+            drawProjected(img, [
+                [gridX * stepX, gridY * stepY, 0],
+                [(gridX+1) * stepX, gridY * stepY, 0],
+                [(gridX+1) * stepX, (gridY+1) * stepY, 0],
+                [(gridX) * stepX, (gridY+1) * stepY, 0],
+                [gridX * stepX, gridY * stepY, 0]
+            ], rvec, tvec, cameraMatrix, distCoeffs, (255, 0, 255), gridThickness)
 
         targetForwardInPlane = None
         targetAngle = None
@@ -482,7 +516,8 @@ def process_frame(img):
             targetForwardInPlane = inv_rotation.dot(targetForwardInWorld)
 
             targetAngle = math.atan2(targetForwardInPlane[0], targetForwardInPlane[1]) * 180 / math.pi
-            print("ANGLE", targetAngle)
+            target_angles.append(targetAngle)
+            # print("ANGLE", targetAngle)
             # print(targetForwardInPlane)
             # drawProjected(img, [
             #     [targ_center[0], targ_center[1], 0],
@@ -499,6 +534,14 @@ def process_frame(img):
             gridY = int(targY / stepY)
 
             gridPos[target_id] = (gridX, gridY)
+
+
+            if gSizeX is not None and goalCoords is not None:
+                # tX, tY, sX, sY = transformGridCoords(gridPos[target_id], gSizeX, gSizeY)
+                # print("Win check:",(gridX, gridY),"vs",goalCoords)
+                if gridX == goalCoords[0] and gridY == goalCoords[1]:
+                    winner = True
+                    # print("\n\n\n\nWINNER!!!!!!!\n\n\n\n")
 
             
             drawProjected(img, [
@@ -542,19 +585,23 @@ def process_frame(img):
                 grid_ready = False
 
             if grid_ready:
-                _, _, sX, sY = transformGridCoords((x, y), sizeX, sizeY)
+                # print("GRID READY")
+                _, _, sX, sY = transformGridCoords((0, 0), gSizeX, gSizeY)
                 new_grid = [[0 for x in range(sX)] for y in range(sY)]
 
                 # tX, tY, _, _ = transformGridCoords(gridPos[target_id], sizeX, sizeY)
                 # grid[tY][tX] = 3
 
                 for obs_id in obstacle_ids:
-                    oX, oY = transformGridCoords(gridPos[obs_id], sizeX, sizeY)
-                    new_grid[oX][oY] = 1 # obstacle
+                    oX, oY, _, _ = transformGridCoords(gridPos[obs_id], gSizeX, gSizeY)
+                    new_grid[oY][oX] = 1 # obstacle
 
-                goalPos = (sizeX / 2, sizeY)
-                gX, gY = transformGridCoords(goalPos, sizeX, sizeY)
-                new_grid[gX][gY] = 2 # goal
+                goalPos = (int(abs(gSizeX)-1), int(abs(gSizeY / 2)))
+                gX, gY, _, _ = transformGridCoords(goalPos, gSizeX, gSizeY)
+                new_grid[gY][gX] = 2 # goal
+
+                # goalCoords = (gX, gY)
+                goalCoords = goalPos
 
                 grid = new_grid
                 send_grid = True
@@ -636,8 +683,64 @@ def plannerInterface():
     print("Received policies:", policies)
     print("Received schedule:", schedule)
 
+
+time_per_step = 5
+checkin_index = 0
+def sendCheckin(sock):
+    global checkin_index
+    global target_angles
+
+    while True:
+        if len(target_angles) > 0 and target_id in gridPos and schedule is not None:
+            angle = median(target_angles)
+            tX, tY, sX, sY = transformGridCoords(gridPos[target_id], gSizeX, gSizeY)
+
+            if tX >= 0 and tX < sX and tY >= 0 and tY < sY:
+
+                if winner:
+                    print("Sending win notification!")
+                    sendMessage(sock, "exit")
+                    return True
+                
+                message = str(int(checkin_index)) + " " + str(int(tX)) + " " + str(int(tY)) + " " + str(int(angle))
+                print("CHECKIN",message)
+
+                ind = checkin_index
+                if ind >= len(schedule)-1:
+                    ind = len(schedule)-1
+
+                state = (int(tX), int(tY))
+                action = policies[ind][state] if state in policies[ind] else "in wall, up to agent"
+                print("  Agent should be doing:", action)
+
+                sendMessage(sock, message)
+
+                target_angles.clear()
+                
+                received = sock.recv(3).decode()
+                if received == "ACK":
+                    print("ACK received, continuing")
+                
+                next_stride = schedule[ind]
+                to_wait = time_per_step * next_stride
+                print("  Next observation in", to_wait, "seconds...")
+                time.sleep(to_wait)
+
+                checkin_index += 1
+
+                return False
+
+        time.sleep(0.05)
+    
+    
+
     
 def serverInterface():
+
+
+    # while True:
+    #     sendCheckin(None)
+
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
@@ -648,26 +751,30 @@ def serverInterface():
     conn, addr = s.accept()
 
     #with conn:
-    print("Connection established from " + str(addr))
+    print("Agent connection established from " + str(addr))
     while True:
-        data = conn.recv(1024)
-        # if not data:
-        #     break
-        received = data.decode()
-        print("Received: " + received)
-
-        to_send = ""
-        for i in range(5000):
-            to_send += received
-        # conn.send(("ping " + received).encode())
-        print("sending back", len(to_send),"bytes")
-        conn.send(len(to_send).to_bytes(2, 'little', signed=False))
-        conn.send(to_send.encode())
-
-        if received == "exit":
+        if sendCheckin(conn):
             conn.close()
             s.close()
             break
+        # data = conn.recv(1024)
+        # # if not data:
+        # #     break
+        # received = data.decode()
+        # print("Received: " + received)
+
+        # to_send = ""
+        # for i in range(5000):
+        #     to_send += received
+        # # conn.send(("ping " + received).encode())
+        # print("sending back", len(to_send),"bytes")
+        # conn.send(len(to_send).to_bytes(2, 'little', signed=False))
+        # conn.send(to_send.encode())
+
+        # if received == "exit":
+        #     conn.close()
+        #     s.close()
+        #     break
 
 
 
