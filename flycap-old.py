@@ -48,6 +48,7 @@ schedule = None
 
 ARUCO_PARAMETERS = aruco.DetectorParameters_create()
 ARUCO_DICT = aruco.Dictionary_get(aruco.DICT_5X5_1000)
+ARUCO_DICT_4 = aruco.Dictionary_get(aruco.DICT_4X4_50)
 
 
 
@@ -70,13 +71,23 @@ CHARUCO_BOARD = aruco.CharucoBoard_create(
         markerLength=(18.83 * 16/20) / 1000,#0.02,
         dictionary=ARUCO_DICT)
 
+# 129 and 154
 markerLength = 146.05#50.8#(18.83 * 16/20) / 1000#0.05;
-objPoints = np.array([
-    [-markerLength/2, markerLength/2, 0],
-    [markerLength/2, markerLength/2, 0],
-    [markerLength/2, -markerLength/2, 0],
-    [-markerLength/2, -markerLength/2, 0]
-])
+markerLength4p = 129 # side by side 4x4 markers
+markerLength4 = 154 # single 4x4 marker
+
+
+
+def calcObjPoints(sideLength):
+    np.array([
+        [-sideLength/2, sideLength/2, 0],
+        [sideLength/2, sideLength/2, 0],
+        [sideLength/2, -sideLength/2, 0],
+        [-sideLength/2, -sideLength/2, 0]
+    ])
+
+
+objPoints = calcObjPoints(markerLength)
 
 
 def markerCenter(corners):
@@ -88,6 +99,11 @@ def markerCenter(corners):
 
     return np.array([cX, cY])
 
+def normalize(v):
+    norm = np.linalg.norm(v)
+    if norm == 0: 
+       return v
+    return v / norm
 
 def drawArucoMarkers(img, corners, ids):
     if len(corners) > 0:
@@ -153,6 +169,10 @@ corner2_vals = []
 target_id = 70
 target_angles = []
 # obstacle_ids = [66, 42, 69, 1, 2, 3, 4, 5, 6, 7]
+
+id4_top = 20
+id4_bottom = 21
+id4 = 30
 
 obstacle_ids = [42, 1, 2, 3, 4, 5]
 tracking = {}
@@ -261,6 +281,30 @@ def transformGridCoords(pos, sizeX, sizeY):
 
     return (x, y, sX, sY)
         
+def forwardVecToAngle(forward):
+    return math.atan2(forward[0], forward[1]) * 180 / math.pi
+
+def extractTargetAngle(id, target, c1_center, inv_rotation):
+    target_rvec = target[1]
+    targ_center = coordsInPlane(target[2], c1_center, inv_rotation)
+    targetRotationMatrix, _ = cv2.Rodrigues(target_rvec)
+    forward = np.array([0, 1, 0])
+    up = np.array([0, 0, 1])
+    
+    targetForwardInWorld = targetRotationMatrix.dot(forward)
+    targetForwardInPlane = inv_rotation.dot(targetForwardInWorld)
+
+    targetUpInWorld = targetRotationMatrix.dot(up)
+    targetUpInPlane = inv_rotation.dot(targetUpInWorld)
+    if targetUpInPlane[2] <= 0:
+        print("Bad target",id,"Z axis!", targetUpInPlane[2])
+        return (None, None)
+    else:
+        targetAngle = forwardVecToAngle(targetForwardInPlane)
+
+    return (targetAngle, targetForwardInPlane)
+
+
 
 def process_frame(img):
     global corner1
@@ -283,6 +327,10 @@ def process_frame(img):
     # Detect Aruco markers
     # corners, ids, rejectedImgPoints = detector.detectMarkers(gray)
     corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, ARUCO_DICT, parameters=ARUCO_PARAMETERS)
+    
+    corners4, ids4, _ = aruco.detectMarkers(gray, ARUCO_DICT_4, parameters=ARUCO_PARAMETERS)
+    corners.extend(corners4)
+    ids.extend(ids4)
 
     # Refine detected markers
     # Eliminates markers not part of our board, adds missing markers to the board
@@ -297,6 +345,8 @@ def process_frame(img):
             distCoeffs = distCoeffs)  
 
     target = None
+    target_top = None
+    target_bottom = None
 
     if corners is not None and len(corners) > 0:
 
@@ -309,12 +359,21 @@ def process_frame(img):
 
         for (corner, id) in zip(corners, ids):
             id = id[0]
+
+            mLength = markerLength
+            if id == id4_bottom or id == id4_top:
+                mLength = markerLength4p
+            elif id == id4:
+                mLength = markerLength4
+
+            objPoints = calcObjPoints(mLength)
+
             retval, rvec, tvec = cv2.solvePnP(
                 objectPoints=objPoints, 
                 imagePoints=corner, 
                 cameraMatrix=cameraMatrix, 
                 distCoeffs=distCoeffs)           
-            img = cv2.drawFrameAxes(img, cameraMatrix, distCoeffs, rvec, tvec, markerLength/2)#0.015)
+            img = cv2.drawFrameAxes(img, cameraMatrix, distCoeffs, rvec, tvec, mLength/2)#0.015)
 
             data = (corner, rvec, tvec)
             if id == 24:
@@ -323,10 +382,14 @@ def process_frame(img):
             elif id == 87:
                 corner2 = data
                 # corner2_vals.append(data)
-            elif id == target_id:
+            elif id == target_id or id == id4:
                 target = data
+            elif id == id4_top:
+                target_top = data
+            elif id == id4_bottom:
+                target_bottom = data
             
-            if id in obstacle_ids or id == target_id:
+            if id in obstacle_ids or id == target_id or id == id4_top or id == id4_bottom or id == id4:
                 curr_corner1, curr_corner2, curr_error = get_current_corners()
                 if curr_corner1 is not None:
                     error = calculate_error(corner1=curr_corner1, corner2=data, img=None)
@@ -508,14 +571,37 @@ def process_frame(img):
         targetForwardInPlane = None
         targetAngle = None
         if target is not None:
-            target_rvec = target[1]
-            targ_center = coordsInPlane(target[2], c1_center, inv_rotation)
-            targetRotationMatrix, _ = cv2.Rodrigues(target_rvec)
-            forward = np.array([0, 1, 0])
-            targetForwardInWorld = targetRotationMatrix.dot(forward)
-            targetForwardInPlane = inv_rotation.dot(targetForwardInWorld)
+            targetAngle, targetForwardInPlane = extractTargetAngle(target_id, target, c1_center, inv_rotation)
+        
+        if target_top is not None or target_bottom is not None:
+            targetForwardInPlane = np.array([0, 0, 0])
+            n = 0
 
-            targetAngle = math.atan2(targetForwardInPlane[0], targetForwardInPlane[1]) * 180 / math.pi
+            if target_top is not None:
+                targetAngle, targetForwardInPlaneT = extractTargetAngle(id4_top, target_top, c1_center, inv_rotation)
+                targetForwardInPlane += targetForwardInPlaneT
+                n += 1
+            if target_bottom is not None:
+                targetAngle, targetForwardInPlaneB = extractTargetAngle(id4_bottom, target_bottom, c1_center, inv_rotation)
+                targetForwardInPlane += targetForwardInPlaneB
+                n += 1
+
+            targetForwardInPlane = normalize(targetForwardInPlane/n)
+            targetAngle = forwardVecToAngle(targetForwardInPlane)
+
+            if id4_top in tracking and id4_bottom in tracking:
+                top_center = coordsInPlane(tracking[id4_top][2], c1_center, inv_rotation)
+                bottom_center = coordsInPlane(tracking[id4_bottom][2], c1_center, inv_rotation)
+                right_vec = normalize(top_center - bottom_center)
+                up_vec = np.array([0, 0, 1])
+                forward_vec = np.cross(up_vec, right_vec)
+                targetForwardInPlane = normalize((targetForwardInPlane + forward_vec) / 2)
+
+                targetAngleNew = forwardVecToAngle(targetForwardInPlane)
+                print("headings",int(targetAngle),"vs",int(targetAngleNew))
+                targetAngle = targetAngleNew
+
+        if targetAngle is not None:
             target_angles.append(targetAngle)
             # print("ANGLE", targetAngle)
             # print(targetForwardInPlane)
@@ -524,9 +610,22 @@ def process_frame(img):
             #     [targ_center[0] + targetForwardInPlane[0]*markerLength, targ_center[1] + targetForwardInPlane[1]*markerLength, 0],
             # ], rvec, tvec, cameraMatrix, distCoeffs, (0, 255, 255), 5)
 
-        if target_id in tracking:
-            target = tracking[target_id]
-            targ_center = coordsInPlane(target[2], c1_center, inv_rotation)
+        if target_id in tracking or id4_top in tracking or id4_bottom in tracking:
+            if id4_top in tracking and id4_bottom in tracking:
+                targetT = tracking[id4_top]
+                targetB = tracking[id4_bottom]
+                targ_centerT = coordsInPlane(targetT[2], c1_center, inv_rotation)
+                targ_centerB = coordsInPlane(targetB[2], c1_center, inv_rotation)
+                targ_center = (targ_centerT + targ_centerB) / 2
+            else:
+                if target_id in tracking:
+                    target = tracking[target_id]
+                elif id4_top in tracking:
+                    target = tracking[id4_top]
+                elif id4_bottom in tracking:
+                    target = tracking[id4_bottom]
+                targ_center = coordsInPlane(target[2], c1_center, inv_rotation)
+
             targX = targ_center[0]
             targY = targ_center[1]
             
@@ -570,6 +669,16 @@ def process_frame(img):
                 drawProjected(img, [
                     [targ_center[0], targ_center[1], 0],
                     [targ_center[0] + targetForwardInPlane[0]*markerLength*2, targ_center[1] + targetForwardInPlane[1]*markerLength*2, 0],
+                ], rvec, tvec, cameraMatrix, distCoeffs, (0, 0, 255), 2)
+
+                angle = median(target_angles)
+                y = math.cos(angle * math.pi / 180)
+                x = math.sin(angle * math.pi / 180)
+                forward = np.array([x, y, 0])
+
+                drawProjected(img, [
+                    [targ_center[0], targ_center[1], 0],
+                    [targ_center[0] + forward[0]*markerLength*2, targ_center[1] + forward[1]*markerLength*2, 0],
                 ], rvec, tvec, cameraMatrix, distCoeffs, (255, 0, 255), 3)
             # if b is None or target_error <= b:
             #     b = target_error
@@ -715,16 +824,18 @@ def sendCheckin(sock):
 
                 sendMessage(sock, message)
 
-                target_angles.clear()
-                
                 received = sock.recv(3).decode()
                 if received == "ACK":
                     print("ACK received, continuing")
                 
-                next_stride = schedule[ind]
+                next_stride = int(schedule[ind])
                 to_wait = time_per_step * next_stride
                 print("  Next observation in", to_wait, "seconds...")
-                time.sleep(to_wait)
+
+                for i in range(next_stride):
+                    target_angles.clear()
+                    time.sleep(time_per_step)
+                # time.sleep(to_wait)
 
                 checkin_index += 1
 
