@@ -188,7 +188,7 @@ def plan(action, duration):
 #
 # Connect to planner and fetch plan
 #
-PlannerIp = "127.0.0.1"
+PlannerIp = "10.224.123.203"
 PlannerPort = 6667
 planner = socket.socket()
 
@@ -197,6 +197,9 @@ planner.connect((PlannerIp, PlannerPort))
 planner.send("SUBS".encode()) # Request plan
 planJSON = receiveMessage(planner)
 plan = json.loads(planJSON) # Decode plan
+planner.close()
+
+print("Received plan: \n")
 
 
 
@@ -288,7 +291,7 @@ time.sleep(2)
 #        {(2,0): ["n", "e"], (1, 0): ["o", "e"]},
 #        {(1,1): ["n", "w", "s", "e"]}]
 
-while plan != []:
+while True:
     # Fetch current state action map from plan
     #stride_map, plan = plan[0], plan[1:]
 
@@ -297,17 +300,17 @@ while plan != []:
 
     if interval is None:
         print("Exiting.")
-        s.close()
+        observer.close()
         break
 
-    print("Received:", interval, xPos, yPos, current_heading)
+    print("Received status:", interval, xPos, yPos, current_heading)
 
     # Fetch current policy we'll take
-    if interval >= len(plan)-1:
-        interval = len(plan)-1
-    policy = plan[interval]
-    action_sequence = policy[(xPos, yPos)]
-    print("Executing:", action_sequence)
+    if interval >= len(plan['Schedule'])-1:
+        interval = len(plan['Schedule'])-1
+    policy = plan['Policy'][interval]
+    action_sequence = policy[str(xPos) + '-' + str(yPos)]
+    print("Executing sequence:", action_sequence)
 
     # Perform each movement in the selected policy
     while action_sequence != []:
