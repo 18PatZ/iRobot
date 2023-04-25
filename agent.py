@@ -5,6 +5,7 @@ import serial
 import random
 from threading import Thread
 import time
+import math
 import json
 from socketUtil import *
 
@@ -150,7 +151,7 @@ def register_beeps():
     #command_queue.append([140, 1, 2, 72, 12, 72, 36])
     command_queue.append([140, 1, 2, 55, 12, 55, 36])
     command_queue.append([140, 2, 2, 60, 12, 60, 36])
-    command_queue.append([140, 3, 2, 64, 12, 64, 36])
+    command_queue.append([140, 3, 1, 64, 36])
     command_queue.append([140, 4, 2, 67, 12, 67, 36])
     command_queue.append([140, 5, 2, 72, 12, 72, 36])
     command_queue.append([140, 6, 5, 60, 12, 64, 12, 67, 12, 72, 12, 72, 36])
@@ -274,7 +275,7 @@ action_headings = {
 }
 
 time_step = 5 # seconds
-travel_distance = 500
+travel_distance = 340
 current_heading = 0
 
 start_mode()
@@ -303,22 +304,40 @@ while True:
         observer.close()
         break
 
+    if current_heading < 0:
+        current_heading += 360
     print("Received status:", interval, xPos, yPos, current_heading)
 
     # Fetch current policy we'll take
     if interval >= len(plan['Schedule'])-1:
         interval = len(plan['Schedule'])-1
     policy = plan['Policy'][interval]
-    action_sequence = policy[str(xPos) + '-' + str(yPos)]
+    
+    state = str(xPos) + '-' + str(yPos)
+    if state in policy:
+        action_sequence = policy[str(xPos) + '-' + str(yPos)]
+    else:
+        action_sequence = ["NORTH"]
     print("Executing sequence:", action_sequence)
 
+    beep(1)
+    send_commands()
+
+    firstMove = True
     # Perform each movement in the selected policy
     while action_sequence != []:
         # Advance through the policy
         current_move, action_sequence = action_sequence[0], action_sequence[1:]
 
+        if not firstMove:
+            beep(3)
+            send_commands()
+        else:
+            firstMove = False
+
         # Skip movement if no-op action
         if(current_move == "NO-OP"):
+
             time.sleep(time_step)
             continue
 
@@ -327,9 +346,9 @@ while True:
         degreesToTurn = new_heading - current_heading
 
         # Correct >=270 degrees in one direction to <=90 degrees in other dir
-        if(degreesToTurn >= 270):
+        if(degreesToTurn >= 180):
             degreesToTurn = -360 + degreesToTurn
-        elif(degreesToTurn <= -270):
+        elif(degreesToTurn <= -180):
             degreesToTurn = 360 + degreesToTurn
 
         # Measured about 187deg/s when turning at full speed
@@ -339,11 +358,13 @@ while True:
         #  degrees      1      degrees   seconds
         #          X ------- =         X ------- = seconds
         #            deg/sec             degrees
-        time_to_turn = abs(degreesToTurn) / 187.0
-        turn_speed = 500 * (-1 if(degreesToTurn < 0) else 1) # need to make negative if turning other way
-        print("Turning from " + str(current_heading) + " to " + str(new_heading) + ". " + str(time_to_turn) + "s turn.")
+        turn_speed = 300 * (-1 if(degreesToTurn < 0) else 1) # need to make negative if turning other way
+        #degreesPerSecond = turn_speed / 154 * 180/math.pi
+        #time_to_turn = abs(degreesToTurn / degreesPerSecond)
+        time_to_turn = abs(degreesToTurn / 120.0)
+        print("Turning from " + str(current_heading) + " to " + str(new_heading) + ". (" + str(degreesToTurn) + ")degrees. " + str(time_to_turn) + "s turn.")
 
-        beep(2)
+
         turn(speed = turn_speed)
         current_heading = new_heading
         send_commands()
@@ -353,12 +374,14 @@ while True:
         time_to_drive = time_step - time_to_turn # Driving takes rest of timestep
         drive_speed = int(travel_distance / time_to_drive) # Set speed to reach goal at end of timestep, assumes high accel (d=st)
         
-        drive(speed = drive_speed, turn_radius = random.randint(300, 800))
+        #drive(speed = drive_speed, turn_radius = random.randint(1000, 2000))
+        drive(speed = drive_speed, turn_radius = None)
         send_commands()
 
         time.sleep(time_to_drive)
 
         stop_bot()
+
         send_commands()
 
 
