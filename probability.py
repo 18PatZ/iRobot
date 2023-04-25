@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import socket
+import math
 import serial
 from threading import Thread
 import time
 import json
+import random
 from socketUtil import *
 
 port = '/dev/ttyUSB0'
@@ -197,7 +199,7 @@ action_headings = {
 }
 
 time_step = 5 # seconds
-travel_distance = 500
+travel_distance = 330
 current_heading = 0
 
 start_mode()
@@ -208,13 +210,33 @@ send_commands()
 
 time.sleep(2)
 
+
+
 for i in range(20):
     temp = raw_input("Press enter to move.")
+    
+    rand_radius = int(300, 800)
+    sign = randint(0, 1)
+    if(sign == 1):
+        rand_radius = -rand_radius
+    arclength = 2*math.PI*travel_distance * (rand_radius / 360)
+
+    drive(speed = 200, turn_radius = 300)
+    send_commands()
+    time.sleep(2)
+    stop_bot()
+    send_commands()
+
+    time.sleep(5)
+    drive(speed = 200, turn_radius = 300)
+    send_commands()
+    time.sleep(2)
+
+    stop_bot()
+    send_commands()
+    """
     if(temp == 'q' or temp == 'quit' or temp == 'e' or temp == 'exit'):
         break
-
-    # Get amount to turn
-    degreesToTurn = 90
 
     # Measured about 187deg/s when turning at full speed
     # Calculated 220deg/s when turning at full speed
@@ -223,9 +245,10 @@ for i in range(20):
     #  degrees      1      degrees   seconds
     #          X ------- =         X ------- = seconds
     #            deg/sec             degrees
-    time_to_turn = abs(degreesToTurn) / 187.0
-    turn_speed = 500 * (-1 if(degreesToTurn < 0) else 1) # need to make negative if turning other way
-    print("Turning from " + str(current_heading) + " to " + str(new_heading) + ". " + str(time_to_turn) + "s turn.")
+    time_to_turn = 90.0 / 187
+    print('Turning for ' + str(time_to_turn) + 's')
+    turn_speed = 500
+
 
     beep(2)
     turn(speed = turn_speed)
@@ -236,12 +259,13 @@ for i in range(20):
     time_to_drive = time_step - time_to_turn # Driving takes rest of timestep
     drive_speed = int(travel_distance / time_to_drive) # Set speed to reach goal at end of timestep, assumes high accel (d=st)
     
-    drive(speed = drive_speed, turn_radius = None)
+    drive(speed = drive_speed, turn_radius = random.randint(-rand_radius, rand_radius))
     send_commands()
 
     time.sleep(time_to_drive)
 
     stop_bot()
     send_commands()
+    """
 
 ser.close()
