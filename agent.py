@@ -297,7 +297,12 @@ while True:
     #stride_map, plan = plan[0], plan[1:]
 
     # Get current state from camera
-    interval, xPos, yPos, current_heading = getUpdate()
+    interval, xPos, yPos, reported_heading = getUpdate()
+
+    if abs(current_heading - reported_heading) < 45:
+        current_heading = reported_heading
+    else:
+        current_heading += 10 if reported_heading > 0 else -10
 
     if interval is None:
         print("Exiting.")
