@@ -30,8 +30,10 @@ PLANNER_HOST = "127.0.0.1"
 PLANNER_PORT = 6667
 
 send_grid = False
+sent_grid = False
 grid = None
-plan = None
+policies = None
+schedule = None
 
 
 
@@ -149,6 +151,7 @@ corner2_vals = []
 target_id = 70
 obstacle_ids = [66, 42, 69, 1, 2, 3, 4, 5, 6, 7]
 tracking = {}
+gridPos = {}
 
 
 def vector_avg(vectors, ind):
@@ -224,12 +227,32 @@ def coordsInPlane(centerInWorld, originInWorld, inv_rotation):
 
     return np.array([targX, targY])
 
-b = None
+
+def transformGridCoords(pos, sizeX, sizeY):
+    (x, y) = pos
+    x, y = y, x
+    sX = sizeY
+    sY = sizeX
+    
+    if sX < 0:
+        x += (-sX-1)
+        sX = -sX
+
+    if sY < 0:
+        y = -y
+        sY = -sY
+    else:
+        y = (sY-1) - y
+
+    return (x, y, sX, sY)
+        
+
 def process_frame(img):
     global corner1
     global corner2
-    global b
+    global gridPos
     global tracking
+    global grid
     # global corner1_vals
     # global corner2_vals
 
@@ -314,6 +337,7 @@ def process_frame(img):
     corner1, corner2, error = get_current_corners()
 
     if corner1 is not None and corner2 is not None:
+
         # print("CURRENT ERROR: ", error)
 
         rvec = corner1[1]
@@ -350,6 +374,8 @@ def process_frame(img):
         gridSizeY = math.ceil(abs(sizeY / stepY))#gridSize
 
         fullSizeY = gridSizeY * stepY
+
+        
         
 
         gridColor = (255, 255, 0)
@@ -443,6 +469,8 @@ def process_frame(img):
                     [gridX * stepX, gridY * stepY, 0]
                 ], rvec, tvec, cameraMatrix, distCoeffs, (0, 0, 255), gridThickness)
 
+                gridPos[obs_id] = (gridX, gridY)
+
         targetForwardInPlane = None
         targetAngle = None
         if target is not None:
@@ -469,6 +497,8 @@ def process_frame(img):
             
             gridX = int(targX / stepX)
             gridY = int(targY / stepY)
+
+            gridPos[target_id] = (gridX, gridY)
 
             
             drawProjected(img, [
@@ -502,6 +532,32 @@ def process_frame(img):
             #     b = target_error
             # print("ERROR TARGET: ", target_error)
             # print("best", b)
+
+        if not sent_grid:
+            grid_ready = True
+            for obs_id in obstacle_ids:
+                if obs_id not in tracking:
+                    grid_ready = False
+            if target_id not in tracking or targetAngle is None:
+                grid_ready = False
+
+            if grid_ready:
+                _, _, sX, sY = transformGridCoords((x, y), sizeX, sizeY)
+                new_grid = [[0 for x in range(sX)] for y in range(sY)]
+
+                # tX, tY, _, _ = transformGridCoords(gridPos[target_id], sizeX, sizeY)
+                # grid[tY][tX] = 3
+
+                for obs_id in obstacle_ids:
+                    oX, oY = transformGridCoords(gridPos[obs_id], sizeX, sizeY)
+                    new_grid[oX][oY] = 1 # obstacle
+
+                goalPos = (sizeX / 2, sizeY)
+                gX, gY = transformGridCoords(goalPos, sizeX, sizeY)
+                new_grid[gX][gY] = 2 # goal
+
+                grid = new_grid
+                send_grid = True
 
 
 
@@ -541,6 +597,81 @@ def process_frame(img):
     return False
 
 
+
+
+
+
+def plannerInterface():
+    global send_grid
+    global grid
+    global policies
+    global schedule
+    global sent_grid
+
+    planner = socket.socket()
+    print("Connecting to planner at " + PLANNER_HOST + ":" + str(PLANNER_PORT) + "...")
+    planner.connect((PLANNER_HOST, PLANNER_PORT))
+    print("Connected!")
+
+    while not send_grid:
+        time.sleep(1)
+
+    send_grid = False
+    sent_grid = True
+
+    grid_json = json.dumps(grid)
+
+    print("Sending " + str(len(grid)) + "x" + str(len(grid[0])) + " grid to planner...")
+    
+    planner.send("PLAN".encode())
+    sendMessage(planner, grid_json)
+
+    print("Sent! Waiting for plan...")
+    plan_json = receiveMessage(planner)
+    plan = json.loads(plan_json)
+
+    #to_send = {"Policy": policyToJsonFriendly(policy), "Schedule": schedule}
+    policies = jsonFriendlyToPolicy(plan["Policy"])
+    schedule = plan["Schedule"]
+    print("Received policies:", policies)
+    print("Received schedule:", schedule)
+
+    
+def serverInterface():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    s.bind((HOST, PORT))
+    print("Server bound to " + HOST + ":" + str(PORT))
+    s.listen()
+    print("Listening for inbound connections...")
+    conn, addr = s.accept()
+
+    #with conn:
+    print("Connection established from " + str(addr))
+    while True:
+        data = conn.recv(1024)
+        # if not data:
+        #     break
+        received = data.decode()
+        print("Received: " + received)
+
+        to_send = ""
+        for i in range(5000):
+            to_send += received
+        # conn.send(("ping " + received).encode())
+        print("sending back", len(to_send),"bytes")
+        conn.send(len(to_send).to_bytes(2, 'little', signed=False))
+        conn.send(to_send.encode())
+
+        if received == "exit":
+            conn.close()
+            s.close()
+            break
+
+
+
+
 calib_file = './calibration.pckl'
 
 # Check for camera calibration data
@@ -564,5 +695,13 @@ else:
 
 # camera_type = args["camera"]
 
+planner_thread = Thread(target=plannerInterface, args=[])
+planner_thread.start()
+
+server_thread = Thread(target=serverInterface, args=[])
+server_thread.start()
 
 run_camera_loop(process_frame)
+
+planner_thread.join()
+server_thread.join()
