@@ -302,7 +302,7 @@ while True:
     if abs(current_heading - reported_heading) < 45:
         current_heading = reported_heading
     else:
-        current_heading += 10 if reported_heading > 0 else -10
+        current_heading += 10 if reported_heading > current_heading else -10
 
     if interval is None:
         print("Exiting.")
