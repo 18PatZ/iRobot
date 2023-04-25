@@ -2858,9 +2858,9 @@ def solveSchedulePolicies(grid, mdp, discount, discount_checkin, start_state, ta
     sched = createChainTail(grid, mdp, discount, discount_checkin, target_state, compMDPs, greedyCompMDPs, k, midpoints)
     
     while i > 0:
+        i -= 1
         k = schedule[i]
         sched = extendChain(discount, discount_checkin, compMDPs, greedyCompMDPs, sched, k, midpoints)
-        i -= 1
     
     return sched, compMDPs, greedyCompMDPs
 

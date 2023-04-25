@@ -7,15 +7,15 @@ def strToStateTuple(stateStr):
     spl = stateStr.split("-")
     return (int(spl[0]), int(spl[1]))
 
-def policyToJsonFriendly(policy):
-    return {stateTupleToStr(state): list(policy[state]) for state in policy}
+def policyToJsonFriendly(policies):
+    return [{stateTupleToStr(state): list(policy[state]) for state in policy} for policy in policies]
 
-def jsonFriendlyToPolicy(policy):
+def jsonFriendlyToPolicy(policies):
     # return {strToStateTuple(state): tuple(policy[state]) for state in policy}
-    return {strToStateTuple(state): policy[state] for state in policy}
+    return [{strToStateTuple(state): policy[state] for state in policy} for policy in policies]
 
 def sendMessage(sock, message):
-    sock.send(len(message).to_bytes(2, 'little', signed=False))
+    sock.send(len(message).to_bytes(2, 'big', signed=False))
     sock.send(message.encode())
 
 def receiveMessage(sock):

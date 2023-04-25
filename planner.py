@@ -30,9 +30,9 @@ def planForGrid(grid):
     target_state = findTargetState(grid)
 
     checkin_period = 3
-    schedule = [checkin_period]
+    schedule = [2, checkin_period]
 
-    checkin_periods = [checkin_period]
+    checkin_periods = [2, checkin_period]
 
     scaling_factor = 9.69/1.47e6 # y / x
     midpoints = [0.2, 0.4, 0.6, 0.8]
@@ -46,14 +46,14 @@ def planForGrid(grid):
     sched, compMDPs, greedyCompMDPs = solveSchedulePolicies(grid, mdp, discount, discount_checkin, start_state, target_state, 
         checkin_periods, schedule, midpoints)
 
-    policy = sched.policies_exec[-1]
+    policies = sched.policies_exec#[-1]
     values = sched.pi_exec_data[0]
 
     k = schedule[-1]
     compMDP = compMDPs[k]
     # print(policy)
 
-    return policy, sched.strides
+    return policies, sched.strides
 
 
 
