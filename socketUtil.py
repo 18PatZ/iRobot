@@ -1,3 +1,5 @@
+import codecs
+
 def stateTupleToStr(tup):
     return str(tup[0]) + "-" + str(tup[1])
 
@@ -18,7 +20,8 @@ def sendMessage(sock, message):
 
 def receiveMessage(sock):
     data = sock.recv(2)
-    expect = int.from_bytes(data, 'little', signed=False)
+    # expect = int.from_bytes(data, 'little', signed=False)
+    expect = int(codecs.encode(data, 'hex'), 16)
     print("Waiting for", expect, "bytes")
 
     received = ""
