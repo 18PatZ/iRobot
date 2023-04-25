@@ -2,6 +2,7 @@
 
 import socket
 import serial
+import random
 from threading import Thread
 import time
 import json
@@ -216,12 +217,11 @@ def getUpdate():
     global observer
 
     # Get update from camera (returns time interval and current x,  y, and heading)
-    data = observer.recv(1024)
-    receivedData = data.decode()
+    data = receiveMessage(observer)
 
-    if receivedData == "exit":
+    if data == "exit":
         return (None, None, None, None)
-    splitData = receivedData.split(" ")
+    splitData = data.split(" ")
 
     # Respond to camera computer with ACK
     observer.send( ("ACK").encode() )
@@ -353,7 +353,7 @@ while True:
         time_to_drive = time_step - time_to_turn # Driving takes rest of timestep
         drive_speed = int(travel_distance / time_to_drive) # Set speed to reach goal at end of timestep, assumes high accel (d=st)
         
-        drive(speed = drive_speed, turn_radius = None)
+        drive(speed = drive_speed, turn_radius = random.randint(300, 800))
         send_commands()
 
         time.sleep(time_to_drive)
