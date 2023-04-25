@@ -494,16 +494,16 @@ def process_frame(img):
 
                 gridPos[obs_id] = (gridX, gridY)
 
-        if goalPos is not None:
-            gridX = goalPos[0]
-            gridY = goalPos[1]
+        if goalCoords is not None:
+            gridX = goalCoords[0]
+            gridY = goalCoords[1]
             drawProjected(img, [
                 [gridX * stepX, gridY * stepY, 0],
                 [(gridX+1) * stepX, gridY * stepY, 0],
                 [(gridX+1) * stepX, (gridY+1) * stepY, 0],
                 [(gridX) * stepX, (gridY+1) * stepY, 0],
                 [gridX * stepX, gridY * stepY, 0]
-            ], rvec, tvec, cameraMatrix, distCoeffs, (0, 0, 255), gridThickness)
+            ], rvec, tvec, cameraMatrix, distCoeffs, (255, 0, 255), gridThickness)
 
         targetForwardInPlane = None
         targetAngle = None
@@ -536,12 +536,12 @@ def process_frame(img):
             gridPos[target_id] = (gridX, gridY)
 
 
-            if gSizeX is not None:
+            if gSizeX is not None and goalCoords is not None:
                 # tX, tY, sX, sY = transformGridCoords(gridPos[target_id], gSizeX, gSizeY)
-                print("Win check:",(gridX, gridY),"vs",goalPos)
-                if gridX == goalPos[0] and gridY == goalPos[1]:
+                # print("Win check:",(gridX, gridY),"vs",goalCoords)
+                if gridX == goalCoords[0] and gridY == goalCoords[1]:
                     winner = True
-                    print("\n\n\n\nWINNER!!!!!!!\n\n\n\n")
+                    # print("\n\n\n\nWINNER!!!!!!!\n\n\n\n")
 
             
             drawProjected(img, [
@@ -684,10 +684,11 @@ def plannerInterface():
     print("Received schedule:", schedule)
 
 
-time_per_step = 3
+time_per_step = 5
 checkin_index = 0
 def sendCheckin(sock):
     global checkin_index
+    global target_angles
 
     while True:
         if len(target_angles) > 0 and target_id in gridPos and schedule is not None:
@@ -704,19 +705,25 @@ def sendCheckin(sock):
                 message = str(int(checkin_index)) + " " + str(int(tX)) + " " + str(int(tY)) + " " + str(int(angle))
                 print("CHECKIN",message)
 
+                ind = checkin_index
+                if ind >= len(schedule)-1:
+                    ind = len(schedule)-1
+
+                state = (int(tX), int(tY))
+                action = policies[ind][state] if state in policies[ind] else "in wall, up to agent"
+                print("  Agent should be doing:", action)
+
                 sendMessage(sock, message)
+
+                target_angles.clear()
                 
                 received = sock.recv(3).decode()
                 if received == "ACK":
                     print("ACK received, continuing")
-
-                ind = checkin_index
-                if ind >= len(schedule)-1:
-                    ind = len(schedule)-1
                 
                 next_stride = schedule[ind]
                 to_wait = time_per_step * next_stride
-                print("  next check-in in", to_wait, "seconds...")
+                print("  Next observation in", to_wait, "seconds...")
                 time.sleep(to_wait)
 
                 checkin_index += 1
