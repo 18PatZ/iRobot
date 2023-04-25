@@ -291,7 +291,7 @@ time.sleep(2)
 #        {(2,0): ["n", "e"], (1, 0): ["o", "e"]},
 #        {(1,1): ["n", "w", "s", "e"]}]
 
-for i in range(len(plan['Schedule'])):
+while True:
     # Fetch current state action map from plan
     #stride_map, plan = plan[0], plan[1:]
 
