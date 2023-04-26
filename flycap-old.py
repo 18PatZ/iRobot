@@ -170,13 +170,18 @@ target_id = 70
 target_angles = []
 # obstacle_ids = [66, 42, 69, 1, 2, 3, 4, 5, 6, 7]
 
+
 id4_top = 20
 id4_bottom = 21
 id4 = 30
 
-obstacle_ids = []#[42, 1, 2, 3, 4, 5]
+obstacle_ids = [1, 66, 5, 6, 7, 42, 69]
+# obstacle_ids = []#[42, 1, 2, 3, 4, 5]
 tracking = {}
 gridPos = {}
+
+# obs_pos = [(2,1),(5,1),(8,1),(8,0),(2,4),(5,4),(8,4)]
+obs_pos = [(3,1),(6,1),(8,1),(8,0),(3,4),(6,4),(8,4)]
 
 gSizeX = 0
 gSizeY = 0
@@ -260,14 +265,14 @@ def coordsInPlane(centerInWorld, originInWorld, inv_rotation):
     return np.array([targX, targY])
 
 
-def transformGridCoords(pos, sizeX, sizeY):
+def transformGridCoords(pos, sizeX, sizeY, mult = 1):
     (x, y) = pos
     # x, y = int(y), int(x)
-    x, y = int(x), int(y)
+    x, y = int(mult*x), int(mult*y)
     # sX = int(sizeY)
     # sY = int(sizeX)
-    sX = int(sizeX)
-    sY = int(sizeY)
+    sX = int(mult*sizeX)
+    sY = int(mult*sizeY)
     
     if sX < 0:
         x = (-sX-1) - x
@@ -278,6 +283,8 @@ def transformGridCoords(pos, sizeX, sizeY):
         sY = -sY
     else:
         y = (sY-1) - y
+
+    # x, y = int(mult * x), int(mult * y)
 
     return (x, y, sX, sY)
         
@@ -407,6 +414,8 @@ def process_frame(img):
                         old = (corner, tracking[id][1], tracking[id][2])
                         error_old = calculate_error(corner1=curr_corner1, corner2=old, img=None)
                         # print(id, ":", error, "vs", error_old)
+                    # if id == id4:
+                    #     print("error",error)
                     if error <= 40 and (id not in tracking or error <= error_old):
                         tracking[id] = data
 
@@ -418,7 +427,7 @@ def process_frame(img):
             # error = calculate_error(corner1=corner1 if corner1 is not None else corner1_vals[-1], corner2=corner2 if corner2 is not None else corner2_vals[-1], img=img)
             # print("ATTEMPT ERROR: ", error)
             
-            if error <= 20 and (curr_corner1 is None or curr_corner2 is None or error <= curr_error): # good, and don't accept higher error
+            if error <= 20 and (curr_corner1 is None or curr_corner2 is None or error <= curr_error) and not sent_grid: # good, and don't accept higher error
                 # print("added",error)
                 corner1_vals.append(corner1)
                 corner2_vals.append(corner2)
@@ -455,7 +464,8 @@ def process_frame(img):
         diagonal_in_plane = inv_rotation.dot(c2_center - c1_center)
         sizeX = diagonal_in_plane.dot(x_in_plane)
         sizeY = diagonal_in_plane.dot(y_in_plane)
-        gridSize = int(math.floor(abs(sizeX) / 330))#7
+        gridCellSize = 250#280#330
+        gridSize = int(math.floor(abs(sizeX) / gridCellSize))#7
 
         
 
@@ -556,15 +566,26 @@ def process_frame(img):
                 gridX = int(obs_center[0] / stepX)
                 gridY = int(obs_center[1] / stepY)
 
-                drawProjected(img, [
-                    [gridX * stepX, gridY * stepY, 0],
-                    [(gridX+1) * stepX, gridY * stepY, 0],
-                    [(gridX+1) * stepX, (gridY+1) * stepY, 0],
-                    [(gridX) * stepX, (gridY+1) * stepY, 0],
-                    [gridX * stepX, gridY * stepY, 0]
-                ], rvec, tvec, cameraMatrix, distCoeffs, (0, 0, 255), gridThickness)
+                # drawProjected(img, [
+                #     [gridX * stepX, gridY * stepY, 0],
+                #     [(gridX+1) * stepX, gridY * stepY, 0],
+                #     [(gridX+1) * stepX, (gridY+1) * stepY, 0],
+                #     [(gridX) * stepX, (gridY+1) * stepY, 0],
+                #     [gridX * stepX, gridY * stepY, 0]
+                # ], rvec, tvec, cameraMatrix, distCoeffs, (0, 0, 255), gridThickness)
 
                 gridPos[obs_id] = (gridX, gridY)
+
+        for obs in obs_pos:
+            gridX = (abs(int(gSizeX))-1) - obs[0]
+            gridY = (abs(int(gSizeY))-1) - obs[1]
+            drawProjected(img, [
+                [gridX * stepX, gridY * stepY, 0],
+                [(gridX+1) * stepX, gridY * stepY, 0],
+                [(gridX+1) * stepX, (gridY+1) * stepY, 0],
+                [(gridX) * stepX, (gridY+1) * stepY, 0],
+                [gridX * stepX, gridY * stepY, 0]
+            ], rvec, tvec, cameraMatrix, distCoeffs, (0, 0, 255), gridThickness)
 
         if goalCoords is not None:
             gridX = goalCoords[0]
@@ -644,7 +665,7 @@ def process_frame(img):
             gridX = int(targX / stepX)
             gridY = int(targY / stepY)
 
-            gridPos[target_id] = (gridX, gridY)
+            gridPos[target_id] = (targX / stepX, targY / stepY)
 
 
             if gSizeX is not None and goalCoords is not None:
@@ -699,9 +720,9 @@ def process_frame(img):
 
         if not sent_grid:
             grid_ready = True
-            for obs_id in obstacle_ids:
-                if obs_id not in tracking:
-                    grid_ready = False
+            # for obs_id in obstacle_ids:
+            #     if obs_id not in tracking:
+            #         grid_ready = False
             if (target_id not in tracking and id4 not in tracking and (id4_top not in tracking or id4_bottom not in tracking)) or targetAngle is None:
                 grid_ready = False
 
@@ -713,8 +734,14 @@ def process_frame(img):
                 # tX, tY, _, _ = transformGridCoords(gridPos[target_id], sizeX, sizeY)
                 # grid[tY][tX] = 3
 
-                for obs_id in obstacle_ids:
-                    oX, oY, _, _ = transformGridCoords(gridPos[obs_id], gSizeX, gSizeY)
+                # for obs_id in obstacle_ids:
+                for obs in obs_pos:
+                    # oX = (int(abs(gSizeX))-1) - obs[0]
+                    # oY = (int(abs(gSizeY))-1) - obs[1]
+                    oX = obs[0]
+                    oY = obs[1]
+                    # print(gSizeX, gSizeY, obs, oX, oY)  
+                    # oX, oY, _, _ = transformGridCoords(gridPos[obs_id], gSizeX, gSizeY)
                     new_grid[oY][oX] = 1 # obstacle
 
                 goalPos = (int(abs(gSizeX)-1), int(abs(gSizeY / 2)))
@@ -805,7 +832,7 @@ def plannerInterface():
     print("Received schedule:", schedule)
 
 
-time_per_step = 5
+time_per_step = 2
 checkin_index = 0
 def sendCheckin(sock):
     global checkin_index
@@ -814,7 +841,7 @@ def sendCheckin(sock):
     while True:
         if len(target_angles) > 0 and target_id in gridPos and schedule is not None:
             angle = median(target_angles)
-            tX, tY, sX, sY = transformGridCoords(gridPos[target_id], gSizeX, gSizeY)
+            tX, tY, sX, sY = transformGridCoords(gridPos[target_id], gSizeX, gSizeY, mult=1)
 
             if tX >= 0 and tX < sX and tY >= 0 and tY < sY:
 

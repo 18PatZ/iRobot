@@ -51,6 +51,8 @@ image_size = None # Determined at runtime
 images = glob.glob('./input/img_*.jpg')
 print("start")
 
+num = 0
+
 # Loop through images glob'ed
 for iname in images:
     # Open the image
@@ -92,6 +94,7 @@ for iname in images:
 
     # If a Charuco board was found, let's collect image/corner points
     # Requiring at least 20 squares
+
     if response >= min_corners:
     # if charuco_corners is not None and len(charuco_corners) >= min_corners:
 
@@ -116,6 +119,10 @@ for iname in images:
         cv2.imshow('Charuco board', img)
         #cv2.waitKey(0)
         cv2.waitKey(1)
+
+        num += 1 
+        if num >= 50:
+            break
     else:
         print("Not able to detect a charuco board in image: {}".format(iname), "" if charuco_corners is None else (" (only "+str(len(charuco_corners))+"/"+str(min_corners)+" corners found)"))
 
@@ -128,6 +135,11 @@ if len(images) < 1:
     print("Calibration was unsuccessful. No images of charucoboards were found. Add images of charucoboards and use or alter the naming conventions used in this file.")
     # Exit for failure
     exit()
+
+print(len(corners_all),"images passed")
+# if len(images) > 100:
+#     corners_all = corners_all[:20]
+#     ids_all = ids_all[:20]
 
 # Make sure we were able to calibrate on at least one charucoboard by checking
 # if we ever determined the image size
