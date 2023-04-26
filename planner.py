@@ -8,16 +8,34 @@ from socketUtil import *
 do_exit = False
 
 def makeMDP(grid, discount = math.sqrt(0.99)):
+    subdivisions = 1
+
     goalActionReward = 10000
     noopReward = 0#-1
-    wallPenalty = -300000
+    wallPenalty = -400000
+    boundaryPenalty = -200000
     movePenalty = -1
 
     moveProb = 0.9
 
     start_state = (1, 2)
 
-    mdp = createMDP(grid, goalActionReward, noopReward, wallPenalty, movePenalty, moveProb)
+    # grid = [[e for e in line] for line in grid]
+    new_grid = [[0 for x in range(subdivisions * len(grid[0]))] for y in range(subdivisions * len(grid))]
+    for y in range(len(grid)):
+        for x in range(len(grid[y])):
+            if grid[y][x] == 1:
+                for i in range(subdivisions):
+                    for j in range(subdivisions):
+                        p = (subdivisions * x + j, subdivisions * y + i)
+                        new_grid[p[1]][p[0]] = 1
+            elif grid[y][x] == 2:
+                 new_center = (subdivisions * x, subdivisions * y)
+                 new_grid[new_center[1]][new_center[0]] = 2
+    grid = new_grid
+
+
+    mdp = createMDP(grid, goalActionReward, noopReward, wallPenalty, movePenalty, moveProb, boundaryPenalty, subdivisions)
     return grid, mdp, discount, start_state
 
 
@@ -29,10 +47,10 @@ def planForGrid(grid):
 
     target_state = findTargetState(grid)
 
-    checkin_period = 2
-    schedule = [checkin_period]
+    checkin_period = 3
+    schedule = [3]
 
-    checkin_periods = [checkin_period]
+    checkin_periods = [checkin_period]#[2, checkin_period, 4]
 
     scaling_factor = 9.69/1.47e6 # y / x
     midpoints = [0.2, 0.4, 0.6, 0.8]
@@ -126,6 +144,8 @@ def handleConnection(conn):
 
 HOST = "0.0.0.0" # Standard loopback interface address (localhost)
 PORT = 6667
+
+# print(planForGrid([[0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0], [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]]))
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

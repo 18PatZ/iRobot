@@ -96,13 +96,17 @@ def driftAction(actionInd, direction):
     #return cardinals[actionInd + direction]
     return (actionInd + direction + len(cardinals)) % len(cardinals)
 
-def attemptMove(grid, state, dirInd):
-    moveto_state = (state[0] + dpos[dirInd][0], state[1] + dpos[dirInd][1])
-    new_state, hit_wall = clamp(moveto_state, grid)
+# def multTup(tup, num):
+#     return (tup[0] * num, tup[1] * num)
+
+def attemptMove(grid, state, dirInd, stride):
+    moveto_state = (state[0] + dpos[dirInd][0] * stride, state[1] + dpos[dirInd][1] * stride)
+    new_state, hit_boundary = clamp(moveto_state, grid)
+    hit_wall = False
     if grid[new_state[1]][new_state[0]] == TYPE_WALL:
         new_state = state
         hit_wall = True
-    return new_state, hit_wall
+    return new_state, hit_wall, hit_boundary
 
 def addOrSet(dictionary, key, val):
     if key in dictionary:
@@ -110,9 +114,21 @@ def addOrSet(dictionary, key, val):
     else:
         dictionary[key] = val
 
-def createMDP(grid, goalActionReward, noopReward, wallPenalty, movePenalty, moveProb):
+
+def calcPenalty(hitWall, hitBoundary, wallPenalty, boundaryPenalty, movePenalty):
+    if hitWall:
+        return wallPenalty
+    if hitBoundary:
+        return boundaryPenalty
+    return movePenalty
+
+
+def createMDP(grid, goalActionReward, noopReward, wallPenalty, movePenalty, moveProb, boundaryPenalty=None, stride=1):
 
     mdp = MDP([], ["NORTH", "EAST", "SOUTH", "WEST", "NO-OP"], {}, {}, [])
+
+    if boundaryPenalty is None:
+        boundaryPenalty = wallPenalty
 
     for y in range(len(grid)):
         for x in range(len(grid[y])):
@@ -145,12 +161,15 @@ def createMDP(grid, goalActionReward, noopReward, wallPenalty, movePenalty, move
                 for dirInd in range(len(cardinals)):
                     direction = cardinals[dirInd]
 
-                    new_state, hit_wall = attemptMove(grid, state, dirInd)
-                    new_state_left, hit_wall_left = attemptMove(grid, new_state, driftAction(dirInd, -1))
-                    new_state_right, hit_wall_right = attemptMove(grid, new_state, driftAction(dirInd, 1))
+                    new_state, hit_wall, hit_boundary = attemptMove(grid, state, dirInd, stride)
+                    new_state_left, hit_wall_left, hit_boundary_left = attemptMove(grid, new_state, driftAction(dirInd, -1), stride)
+                    new_state_right, hit_wall_right, hit_boundary_right = attemptMove(grid, new_state, driftAction(dirInd, 1), stride)
 
                     hit_wall_left = hit_wall_left or hit_wall
                     hit_wall_right = hit_wall_right or hit_wall
+
+                    hit_boundary_left = hit_boundary_left or hit_boundary
+                    hit_boundary_right = hit_boundary_right or hit_boundary
 
                     #prob = 0.4
 
@@ -158,10 +177,11 @@ def createMDP(grid, goalActionReward, noopReward, wallPenalty, movePenalty, move
                     addOrSet(mdp.transitions[state][direction], new_state_left, (1 - moveProb)/2)
                     addOrSet(mdp.transitions[state][direction], new_state_right, (1 - moveProb)/2)
 
+                    
                     reward = (
-                        moveProb * ((wallPenalty if hit_wall else movePenalty)) +
-                        (1 - moveProb)/2 * ((wallPenalty if hit_wall_left else movePenalty)) +
-                        (1 - moveProb)/2 * ((wallPenalty if hit_wall_right else movePenalty))
+                        moveProb * calcPenalty(hit_wall, hit_boundary, wallPenalty, boundaryPenalty, movePenalty) +
+                        (1 - moveProb)/2 * calcPenalty(hit_wall_left, hit_boundary_left, wallPenalty, boundaryPenalty, movePenalty) +
+                        (1 - moveProb)/2 * calcPenalty(hit_wall_right, hit_boundary_right, wallPenalty, boundaryPenalty, movePenalty)
                     )
 
                     # if y == 5 and x == 2:
