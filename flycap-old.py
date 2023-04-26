@@ -79,7 +79,7 @@ markerLength4 = 154 # single 4x4 marker
 
 
 def calcObjPoints(sideLength):
-    np.array([
+    return np.array([
         [-sideLength/2, sideLength/2, 0],
         [sideLength/2, sideLength/2, 0],
         [sideLength/2, -sideLength/2, 0],
@@ -174,7 +174,7 @@ id4_top = 20
 id4_bottom = 21
 id4 = 30
 
-obstacle_ids = [42, 1, 2, 3, 4, 5]
+obstacle_ids = []#[42, 1, 2, 3, 4, 5]
 tracking = {}
 gridPos = {}
 
@@ -297,7 +297,7 @@ def extractTargetAngle(id, target, c1_center, inv_rotation):
     targetUpInWorld = targetRotationMatrix.dot(up)
     targetUpInPlane = inv_rotation.dot(targetUpInWorld)
     if targetUpInPlane[2] <= 0:
-        print("Bad target",id,"Z axis!", targetUpInPlane[2])
+        # print("Bad target",id,"Z axis!", targetUpInPlane[2])
         return (None, None)
     else:
         targetAngle = forwardVecToAngle(targetForwardInPlane)
@@ -329,8 +329,17 @@ def process_frame(img):
     corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, ARUCO_DICT, parameters=ARUCO_PARAMETERS)
     
     corners4, ids4, _ = aruco.detectMarkers(gray, ARUCO_DICT_4, parameters=ARUCO_PARAMETERS)
-    corners.extend(corners4)
-    ids.extend(ids4)
+    if corners4 is not None:
+        # print(corners.shape)
+        # print(corners4.shape)
+        corners.extend(corners4)
+        # corners = np.append(corners, corners4, axis=0)
+    if ids4 is not None and len(ids4) > 0:
+        # print(ids4)
+        ids = np.append(ids, ids4, axis=0)
+        # ids.extend(ids4)
+    # corners.extend(corners4)
+    # ids.extend(ids4)
 
     # Refine detected markers
     # Eliminates markers not part of our board, adds missing markers to the board
@@ -367,7 +376,7 @@ def process_frame(img):
                 mLength = markerLength4
 
             objPoints = calcObjPoints(mLength)
-
+            
             retval, rvec, tvec = cv2.solvePnP(
                 objectPoints=objPoints, 
                 imagePoints=corner, 
@@ -574,7 +583,7 @@ def process_frame(img):
             targetAngle, targetForwardInPlane = extractTargetAngle(target_id, target, c1_center, inv_rotation)
         
         if target_top is not None or target_bottom is not None:
-            targetForwardInPlane = np.array([0, 0, 0])
+            targetForwardInPlane = np.array([0., 0., 0.])
             n = 0
 
             if target_top is not None:
@@ -593,6 +602,7 @@ def process_frame(img):
                 top_center = coordsInPlane(tracking[id4_top][2], c1_center, inv_rotation)
                 bottom_center = coordsInPlane(tracking[id4_bottom][2], c1_center, inv_rotation)
                 right_vec = normalize(top_center - bottom_center)
+                print(forwardVecToAngle(right_vec))
                 up_vec = np.array([0, 0, 1])
                 forward_vec = np.cross(up_vec, right_vec)
                 targetForwardInPlane = normalize((targetForwardInPlane + forward_vec) / 2)
@@ -610,7 +620,7 @@ def process_frame(img):
             #     [targ_center[0] + targetForwardInPlane[0]*markerLength, targ_center[1] + targetForwardInPlane[1]*markerLength, 0],
             # ], rvec, tvec, cameraMatrix, distCoeffs, (0, 255, 255), 5)
 
-        if target_id in tracking or id4_top in tracking or id4_bottom in tracking:
+        if target_id in tracking or id4_top in tracking or id4_bottom in tracking or id4 in tracking:
             if id4_top in tracking and id4_bottom in tracking:
                 targetT = tracking[id4_top]
                 targetB = tracking[id4_bottom]
@@ -620,6 +630,8 @@ def process_frame(img):
             else:
                 if target_id in tracking:
                     target = tracking[target_id]
+                elif id4 in tracking:
+                    target = tracking[id4]
                 elif id4_top in tracking:
                     target = tracking[id4_top]
                 elif id4_bottom in tracking:
@@ -663,7 +675,7 @@ def process_frame(img):
                 [0, 0, 0]
             ], rvec, tvec, cameraMatrix, distCoeffs, (0, 255, 255), 2)
 
-            target_error = calculate_error(corner1, target, img=img)
+            # target_error = calculate_error(corner1, target, img=img)
 
             if targetForwardInPlane is not None and targetAngle is not None:
                 drawProjected(img, [
@@ -690,7 +702,7 @@ def process_frame(img):
             for obs_id in obstacle_ids:
                 if obs_id not in tracking:
                     grid_ready = False
-            if target_id not in tracking or targetAngle is None:
+            if (target_id not in tracking and id4 not in tracking and (id4_top not in tracking or id4_bottom not in tracking)) or targetAngle is None:
                 grid_ready = False
 
             if grid_ready:
@@ -810,6 +822,8 @@ def sendCheckin(sock):
                     print("Sending win notification!")
                     sendMessage(sock, "exit")
                     return True
+
+                angle += 360
                 
                 message = str(int(checkin_index)) + " " + str(int(tX)) + " " + str(int(tY)) + " " + str(int(angle))
                 print("CHECKIN",message)
@@ -863,6 +877,9 @@ def serverInterface():
 
     #with conn:
     print("Agent connection established from " + str(addr))
+
+    target_angles.clear()
+
     while True:
         if sendCheckin(conn):
             conn.close()
