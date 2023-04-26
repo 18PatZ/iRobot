@@ -274,8 +274,8 @@ action_headings = {
     "SOUTH": 180
 }
 
-time_step = 5 # seconds
-travel_distance = 340
+time_step = 2 # seconds
+travel_distance = 245
 current_heading = 0
 
 start_mode()
@@ -298,11 +298,8 @@ while True:
 
     # Get current state from camera
     interval, xPos, yPos, reported_heading = getUpdate()
-
-    if abs(current_heading - reported_heading) < 45:
-        current_heading = reported_heading
-    else:
-        current_heading += 10 if reported_heading > current_heading else -10
+    current_heading = reported_heading
+    print("Received status:", interval, xPos, yPos, current_heading)
 
     if interval is None:
         print("Exiting.")
@@ -311,7 +308,7 @@ while True:
 
     if current_heading < 0:
         current_heading += 360
-    print("Received status:", interval, xPos, yPos, current_heading)
+    
 
     # Fetch current policy we'll take
     if interval >= len(plan['Schedule'])-1:
