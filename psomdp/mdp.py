@@ -322,11 +322,41 @@ def extendCompositeMDP(mdp, discount, prevPeriodMDP, restricted_action_set = Non
 
     return compMDP
 
+def executionPath(grid, mdp, policy, start_state):
+    path = [start_state]
 
-def draw(grid, mdp, values, policy, policyOnly, drawMinorPolicyEdges, name):
+    target_state = findTargetState(grid)
+
+    while path[-1] != target_state and path[-1] in policy:
+        state = path[-1]
+
+        action = policy[state]
+        
+        maxProb = -1
+        maxProbEnd = None
+        
+        for end in mdp.transitions[state][action].keys():
+            probability = mdp.transitions[state][action][end]
+
+            if probability > maxProb:
+                maxProb = probability
+                maxProbEnd = end
+
+        if maxProbEnd is None:
+            break
+        
+        path.append(maxProbEnd)
+    
+    return path
+
+
+def draw(grid, mdp, values, policy, policyOnly, drawMinorPolicyEdges, name, start_state=None):
 
     max_value = None
     min_value = None
+
+    if start_state is not None:
+        execution_path = executionPath(grid, mdp, policy, start_state)
 
     if len(values) > 0:
         min_value = min(values.values())
@@ -370,17 +400,23 @@ def draw(grid, mdp, values, policy, policyOnly, drawMinorPolicyEdges, name):
                     probability = mdp.transitions[begin][action][end]
 
                     color = fourColor(begin)
+                    thickness = 2
 
                     if isPolicy:
                         color = "grey"
                         if maxProbEnd is not None and end == maxProbEnd:
                             color = "blue"
+                            if start_state is not None:
+                                color = "blue" if begin in execution_path else "grey"
+                                thickness = 5 if begin in execution_path else 2
+
+
                         #if policyOnly and probability >= 0.3:#0.9:
                         #    color = "blue"
                         #else:
                         #    color = "black"
                     if not policyOnly or drawMinorPolicyEdges or (maxProbEnd is None or end == maxProbEnd):
-                        G.add_edge(begin, end, prob=probability, label=f"{action}: " + "{:.2f}".format(probability), color=color, fontcolor=color)
+                        G.add_edge(begin, end, prob=probability, label=f"{action}: " + "{:.2f}".format(probability), color=color, fontcolor=color, penwidth=thickness)
 
             # if policyOnly and maxProbEnd is not None:
             #     color = "blue"
@@ -405,7 +441,10 @@ def draw(grid, mdp, values, policy, policyOnly, drawMinorPolicyEdges, name):
     edge_labels = {}
     color_map = []
 
-    G.graph['edge'] = {'arrowsize': '0.6', 'fontsize':'10'}
+    # G.graph['edge'] = {'arrowsize': '0.6', 'fontsize':'10'}
+    # G.graph['graph'] = {'scale': '3', 'splines': 'true'}
+
+    G.graph['edge'] = {'arrowsize': '1.0', 'fontsize':'10'}
     G.graph['graph'] = {'scale': '3', 'splines': 'true'}
 
     A = to_agraph(G)
@@ -468,7 +507,8 @@ def draw(grid, mdp, values, policy, policyOnly, drawMinorPolicyEdges, name):
     #ax.set_title("MDP")
 
     #plt.show()
-    m = 1.5
+    #m = 1.5
+    m = 0.9
     for k,v in layout.items():
         A.get_node(k).attr['pos']='{},{}!'.format(v[0]*m,v[1]*m)
 
@@ -2907,6 +2947,11 @@ def drawChainPolicy(grid, mdp, discount, discount_checkin, start_state, target_s
     values = chain[1]
     sequence = chain[0]
 
+    drawSchedulePolicy(grid, mdp, start_state, target_state, policies, values, sequence, compMDPs, name)
+
+
+def drawSchedulePolicy(grid, mdp, start_state, target_state, policies, values, strides, compMDPs, name):
+
     max_value = None
     min_value = None
 
@@ -2937,7 +2982,7 @@ def drawChainPolicy(grid, mdp, discount, discount_checkin, start_state, target_s
 
         policy = policies[stage]
         action = policy[current_state]
-        k = sequence[stage]
+        k = strides[stage]
         compMDP = compMDPs[k]
 
         maxProb = -1
@@ -2957,7 +3002,7 @@ def drawChainPolicy(grid, mdp, discount, discount_checkin, start_state, target_s
             G.add_edge(current_state, end, prob=probability, label=f"{action}: " + "{:.2f}".format(probability), color=color, fontcolor=color)
             
             current_state = end
-            if stage < len(sequence) - 1:
+            if stage < len(strides) - 1:
                 stage += 1
         else:
             break
@@ -2974,7 +3019,7 @@ def drawChainPolicy(grid, mdp, discount, discount_checkin, start_state, target_s
 
     # G.graph['edge'] = {'arrowsize': '1.0', 'fontsize':'10', 'penwidth': '5'}
     # G.graph['graph'] = {'scale': '3', 'splines': 'true'}
-    G.graph['edge'] = {'arrowsize': '1.0', 'fontsize':'10', 'penwidth': '5'}
+    G.graph['edge'] = {'arrowsize': '1.0', 'fontsize':'10', 'penwidth': '2'}
     G.graph['graph'] = {'scale': '3', 'splines': 'true'}
 
     A = to_agraph(G)
@@ -3021,14 +3066,14 @@ def drawChainPolicy(grid, mdp, discount, discount_checkin, start_state, target_s
     #ax.set_title("MDP")
 
     #plt.show()
-    m = 0.7#1.5
+    m = 0.9#0.7#1.5
     for k,v in layout.items():
         A.get_node(k).attr['pos']='{},{}!'.format(v[0]*m,v[1]*m)
 
     #A.layout('dot')
     A.layout(prog='neato')
-    # A.draw(name + '.png')#, prog="neato")
-    A.draw(name + '.pdf')#, prog="neato")
+    A.draw(name + '.png')#, prog="neato")
+    # A.draw(name + '.pdf')#, prog="neato")
 
 
 def getData(mdp, schedules, initialDistribution):
@@ -3223,13 +3268,30 @@ def findTargetState(grid):
     return target_state
 
 
+def mixedCadenceCorridor(discount = math.sqrt(0.99)):
+    goalActionReward = 10000
+    noopReward = 0#-1
+    wallPenalty = -400000
+    boundaryPenalty = -200000
+    movePenalty = -1
+
+    moveProb = 0.9
+
+    start_state = (10, 0)
+
+    grid = [[0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], [0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0], [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
+
+    mdp = createMDP(grid, goalActionReward, noopReward, wallPenalty, movePenalty, moveProb, boundaryPenalty)
+    return grid, mdp, discount, start_state
+
 
 if __name__ == "__main__":
     # start = time.time()
 
     # grid, mdp, discount, start_state = paper2An(3)#splitterGrid(rows = 50, discount=0.99)#paper2An(3)#, 0.9999)
 
-    grid, mdp, discount, start_state = corridorTwoCadence(n1=3, n2=6, cadence1=2, cadence2=3)
+    # grid, mdp, discount, start_state = corridorTwoCadence(n1=3, n2=6, cadence1=2, cadence2=3)
+    grid, mdp, discount, start_state = mixedCadenceCorridor()
     # grid, mdp, discount, start_state = splitterGrid2(rows = 12)
     discount_checkin = discount
 
@@ -3568,7 +3630,7 @@ if __name__ == "__main__":
         margins = [0]
         # margins = [0.015]
 
-        lengths = [9]#[1, 2, 3, 4, 5, 6, 7]
+        lengths = [4]#[1, 2, 3, 4, 5, 6, 7]
 
         repeats = 1
         results = []
@@ -3631,7 +3693,7 @@ if __name__ == "__main__":
                         bounding_box = bounding_box, 
                         TRUTH = true_fronts,#TRUTH_C4L4, 
                         TRUTH_COSTS = truth_schedules,#TRUTH_COSTS_C4L4,
-                        drawIntermediate=False,
+                        drawIntermediate=True,
                         midpoints = midpoints)
 
                     running_time_avg += running_time

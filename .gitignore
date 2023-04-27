@@ -6,4 +6,5 @@ camera/test/input/*
 camera/test/output/*
 camera/generation/tags/*
 output/*
+psomdp/output/*
 **/*.pyc

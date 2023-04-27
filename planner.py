@@ -18,7 +18,7 @@ def makeMDP(grid, discount = math.sqrt(0.99)):
 
     moveProb = 0.9
 
-    start_state = (1, 2)
+    start_state = (10, 0)
 
     # grid = [[e for e in line] for line in grid]
     new_grid = [[0 for x in range(subdivisions * len(grid[0]))] for y in range(subdivisions * len(grid))]
@@ -48,9 +48,9 @@ def planForGrid(grid):
     target_state = findTargetState(grid)
 
     checkin_period = 3
-    schedule = [3]
+    schedule = [checkin_period]#[3, 2, 3, 4]
 
-    checkin_periods = [checkin_period]#[2, checkin_period, 4]
+    checkin_periods = [checkin_period]#[2, 3, 4]#[2, checkin_period, 4]
 
     scaling_factor = 9.69/1.47e6 # y / x
     midpoints = [0.2, 0.4, 0.6, 0.8]
@@ -70,7 +70,10 @@ def planForGrid(grid):
     k = schedule[-1]
     compMDP = compMDPs[k]
     # print(policy)
-    draw(grid, compMDP, values, policies[-1], True, False, f"output/policy-{len(grid)}x{len(grid[0])}-{k}-lp")
+    scheduleName = "".join([str(stride) for stride in schedule])
+    name = f"output/policy-{len(grid)}x{len(grid[0])}-{scheduleName}-lp"
+    draw(grid, compMDP, values, policies[-1], True, False, name, start_state)
+    # drawSchedulePolicy(grid, mdp, start_state, target_state, policies, values, schedule, compMDPs, name)
 
     return policies, sched.strides
 
@@ -145,7 +148,11 @@ def handleConnection(conn):
 HOST = "0.0.0.0" # Standard loopback interface address (localhost)
 PORT = 6667
 
-# print(planForGrid([[0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0], [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]]))
+if True:
+    # print(planForGrid([[0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0], [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]]))
+    print(planForGrid([[0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0], [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]))
+    # print(planForGrid([[0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], [0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0], [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]))
+    exit()
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

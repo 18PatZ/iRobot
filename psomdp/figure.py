@@ -196,7 +196,8 @@ def finishPlot(font, name, bounding_box, x_offset, x_scale):
     plt.ylim(bounding_box[1])
 
     plt.gcf().set_size_inches(10, 10)
-    plt.savefig(f'output/{name}.pdf', format="pdf",  pad_inches=0.2, dpi=600)
+    # plt.savefig(f'output/{name}.pdf', format="pdf",  pad_inches=0.2, dpi=600)
+    plt.savefig(f'output/{name}.png', format="png",  pad_inches=0.2, dpi=600)
     # plt.savefig(f'output/{name}.png', bbox_inches='tight', pad_inches=0.5, dpi=300)
     # plt.show()
 
@@ -209,6 +210,19 @@ def drawParetoFront(schedules, is_efficient, optimistic_front, realizable_front,
     arrows = True
     
     font = setPlotStyle()
+
+    # all_points = []
+    # for i in range(len(schedules)):
+    #     sched = schedules[i]
+    #     for b in sched.upper_bound:
+    #         all_points.append(b)
+    #     for b in sched.lower_bound:
+    #         all_points.append(b)
+    # all_points = np.array(all_points)
+    # maxes = np.max(all_points,axis=0)
+    # mins = np.min(all_points,axis=0)
+    # actual_bounding = [[mins[0], maxes[0]], [mins[1], maxes[1]]]
+    # print(actual_bounding)
 
     # points is a list of point tuples, each tuple is: (string name of schedule, [execution cost, checkin cost])
     # each schedule has 3 points (pi*, pi^c, and bottom corner of L)
@@ -402,9 +416,10 @@ if __name__ == "__main__":
     #bounding_box = np.array([[-1.50e6, -1.40e6+15], [0.0000+3.5, 25+1.5]])
     # bounding_box = np.array([[-1.560e6, -1.10e6+15], [0.0000+3.5, 25+1.5]])
     #bounding_box = np.array([[-1.5e6, -1e6], [0.0001, 30]])
-    bounding_box = np.array([[-1.56e6, -1e6], [0.0001, 30]])
+    # bounding_box = np.array([[-1.56e6, -1e6], [0.0001, 30]])
+    bounding_box = np.array([[-2.11e6, 1.95e5], [0.0001, 15]])
 
-    x_offset = 1.56e6
+    x_offset = 2.11e6#1.56e6
     x_scale = 1/1000
 
     truth_name = None#"pareto-c4-l4-truth"
@@ -419,7 +434,8 @@ if __name__ == "__main__":
         # "pareto-c4-l32-initial_10alpha_-filtered-margin0.000-step4",
         # "pareto-c4-l32-initial_10alpha_-filtered-margin0.000-step8",
         # "pareto-c4-l32-initial_10alpha_-filtered-margin0.000-step14",
-        "pareto-c4-l32-initial_10alpha_-filtered-margin0.000-step17"
+        # "pareto-c4-l32-initial_10alpha_-filtered-margin0.000-step17"
+        "pareto-c4-l4-mixed_4e-alpha_-filtered-margin0.000"
     ]
 
     label_offsets = {
