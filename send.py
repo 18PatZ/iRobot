@@ -13,7 +13,7 @@ def read_serial(s):
     while True:
         if s.inWaiting() > 0:
             line = s.readline().decode()
-	    print(line)
+        print(line)
         if len(command_queue) > 0:
             for cmd in command_queue:
                 ser.write(cmd)
@@ -49,17 +49,60 @@ def int16ToByteStr(val):
     return str(first_byte) + " " + str(second_byte)
         
 
+def send_commands():
+    global command_queue
+    for command in command_queue:
+        ser.write(bytearray(command))
+    del command_queue[:]
+
+notes = {
+    "C": 60,
+    "D": 62,
+    "E": 64,
+    "F": 65,
+    "G": 67,
+    "A": 69
+}
+
+def register_beeps():
+    print("Registering beeps...")
+    # Opcode 140: Song
+    command_queue.append([140, 0, 4, 60, 12, 64, 12, 67, 12, 72, 36])
+    #command_queue.append([140, 1, 2, 72, 12, 72, 36])
+    command_queue.append([140, 1, 2, 55, 12, 55, 36])
+    command_queue.append([140, 2, 2, 60, 12, 60, 36])
+    command_queue.append([140, 3, 1, 64, 36])
+    command_queue.append([140, 4, 2, 67, 12, 67, 36])
+    command_queue.append([140, 5, 2, 72, 12, 72, 36])
+    command_queue.append([140, 6, 5, 60, 12, 64, 12, 67, 12, 72, 12, 72, 36])
+    command_queue.append([140, 7, 7,
+        notes["C"], 12, notes["C"], 12, 
+        notes["G"], 12, notes["G"], 12, 
+        notes["A"], 12, notes["A"], 12, 
+        notes["G"], 36])
+    #command_queue.append([140 0 4 62 12 66 12 69 12 74 36])
+    send_commands()
+
+def beep(num):
+    print("Beep " + str(num))
+    # Opcode 141: Play Song
+    # Need to register with Opcode 140 first!
+    command_queue.append([141, num])
+
+
 speed = 100
 radius = 500
 
 while True:
-    line = raw_input("Enter serial command or 'quit': ")
+    line = input("Enter serial command or 'quit': ")
     if line == 'q' or line == 'quit' or line == 'exit':
         break
     parts = line.split(" ")
     cmd = line
     if line == "init":
         cmd = "128 131"
+        register_beeps()
+
     if parts[0] == "speed" or parts[0] == "sp":
         speed = int(parts[1])
         print("Set speed to " + str(speed) + " millimeters/s") 
@@ -68,6 +111,9 @@ while True:
         radius = int(parts[1])
         print("Set radius to " + str(radius) + " millimeters") 
         continue
+
+    if parts[0] == "beep" or parts[0] == "b":
+        cmd = f"141 {parts[1]}"
 
     if line == "stop" or line == "s":
         cmd = "137 0 0 0 0"
@@ -92,7 +138,7 @@ while True:
     print("  Parsing " + cmd)
     try:
         cmd_bytes = bytearray([int(p) for p in parts])
-    except Exception,e:
+    except Exception as e:
         print(str(e))
         print("  Error: " + p + " is not a number")
         continue
