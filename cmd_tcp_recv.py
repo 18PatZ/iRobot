@@ -8,7 +8,7 @@ HOST = "0.0.0.0" # Standard loopback interface address (localhost)
 PORT = 6666
 
 
-# ser = serial.Serial(port = serial_port, baudrate = baud)
+ser = serial.Serial(port = serial_port, baudrate = baud)
 print("Serial connection open.")
 
 
