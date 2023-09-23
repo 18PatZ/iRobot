@@ -39,7 +39,7 @@ while True:
         raise RuntimeError("Socket connection broken")
 
     print("  Command received: ", list(cmd))
-    # ser.write(cmd)
+    ser.write(cmd)
 
 conn.close()
 s.close()
