@@ -3,12 +3,25 @@ from threading import Thread
 import socket
 
 NOTES = {
+    "G_0": 55,
+
     "C": 60,
     "D": 62,
     "E": 64,
     "F": 65,
     "G": 67,
-    "A": 69
+    "A": 69,
+    "B": 71,
+
+    "C_1": 72,
+    "D_1": 74,
+    "E_1": 76,
+    "F_1": 77,
+    "G_1": 79,
+    "A_1": 81,
+    "B_1": 83,
+
+    "REST": 30
 }
 
 class iRobotInterface:
@@ -238,7 +251,8 @@ class iRobotInterface:
         # Opcode 140: Song
         cmd = [140, id, len(notes)]
         for note in notes:
-            cmd.append(note[0], note[1])
+            cmd.append(note[0])
+            cmd.append(note[1])
         self.send_command(cmd)
 
     def register_beeps(self):
@@ -252,11 +266,34 @@ class iRobotInterface:
         self.send_command([140, 4, 2, 67, 12, 67, 36])
         self.send_command([140, 5, 2, 72, 12, 72, 36])
         self.send_command([140, 6, 5, 60, 12, 64, 12, 67, 12, 72, 12, 72, 36])
-        self.send_command([140, 7, 7,
-            NOTES["C"], 12, NOTES["C"], 12, 
-            NOTES["G"], 12, NOTES["G"], 12, 
-            NOTES["A"], 12, NOTES["A"], 12, 
-            NOTES["G"], 36])
+        self.register_beep(7, 
+            [
+                (NOTES["C"], 24),
+                (NOTES["C"], 24),
+                (NOTES["G"], 24),
+                (NOTES["G"], 24),
+                (NOTES["A"], 24),
+                (NOTES["A"], 24),
+                (NOTES["G"], 48),
+                (NOTES["F"], 24),
+                (NOTES["F"], 24),
+                (NOTES["E"], 24),
+                (NOTES["E"], 24),
+                (NOTES["D"], 24),
+                (NOTES["D"], 24),
+                (NOTES["C"], 48)
+            ])
+        self.send_command([140, 8, 19,
+            NOTES["C"], 24, NOTES["REST"], 12, 
+            NOTES["D"], 24, NOTES["REST"], 12, 
+            NOTES["G_0"], 12, NOTES["REST"], 12, 
+            NOTES["D"], 24, NOTES["REST"], 12, 
+            NOTES["E"], 24, NOTES["REST"], 12, 
+            NOTES["G"], 6, NOTES["F"], 6, NOTES["E"], 6, NOTES["REST"], 6,
+            NOTES["C"], 24, NOTES["REST"], 12, 
+            NOTES["D"], 24, NOTES["REST"], 12, 
+            NOTES["G_0"], 36 
+            ])
         #self.send_command([140 0 4 62 12 66 12 69 12 74 36])
 
     def beep(self, num):
