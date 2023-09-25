@@ -3,12 +3,18 @@ from tkinter import ttk
 import os
 import re
 
+import time
+
+import pygame
+
 from irobot_interface import iRobotInterface, NOTES
 
 w = None
 
 pressed = set()
 robot = None
+
+DEADZONE = 0.1
 
 KEY_NOTE_MAP = {
     "q": "C",
@@ -24,6 +30,10 @@ KEY_NOTE_MAP = {
     "bracketleft": "F_1",
     "bracketright": "G_1"
 }
+
+pygame.init()
+joy = pygame.joystick.Joystick(0)
+joy.init()
 
 def key_pressed(event):
     if event.keysym == 'Escape':
@@ -74,6 +84,10 @@ def init():
 
     init_robot()
 
+    # while True:
+    #     update()
+    #     time.sleep(0.1)
+
     return root
 
 
@@ -82,6 +96,9 @@ def update():
     for c in pressed:
         t += ("" if len(t) == 0 else ", ") + c
     w.config(text="Keys pressed: " + t)
+    
+    for event in pygame.event.get():
+        pass
 
     sp = 500
     # if "shift_l" in pressed:
@@ -106,7 +123,28 @@ def update():
     elif "left" in pressed:
         robot.turn(speed = -sp)
     else:
-        robot.stop()
+
+        turning = abs(joy.get_axis(2)) >= DEADZONE
+
+        turn_radius = (250 * joy.get_axis(2)) if turning else None
+
+        # if joy.get_axis(5) >= -1 + DEADZONE:
+        #     robot.drive(speed = (joy.get_axis(5) + 1) / 2 * 5, turn_radius = turn_radius)
+        # elif joy.get_axis(4) >= -1 + DEADZONE:
+        #     robot.drive(speed = - (joy.get_axis(4) + 1) / 2 * 5, turn_radius = turn_radius)
+        if abs(joy.get_axis(1)) >= DEADZONE:
+            robot.drive(speed = -joy.get_axis(1) * 500, turn_radius = turn_radius)
+        elif turning:
+            robot.turn(speed = 500 * joy.get_axis(2))
+        else:
+            robot.stop()
+
+        if(joy.get_button(0)):
+            robot.beep(7)
+
+        print("Axes", joy.get_axis(0), joy.get_axis(1), joy.get_axis(2), joy.get_axis(3), joy.get_axis(4), joy.get_axis(5))
+
+        
 
     for p in pressed:
         if re.search("^[0-9]$", p) is not None:

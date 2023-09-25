@@ -263,10 +263,10 @@ class iRobotInterface:
         self.send_command([140, 1, 2, 55, 12, 55, 36])
         self.send_command([140, 2, 2, 60, 12, 60, 36])
         self.send_command([140, 3, 1, 64, 36])
-        self.send_command([140, 4, 2, 67, 12, 67, 36])
-        self.send_command([140, 5, 2, 72, 12, 72, 36])
-        self.send_command([140, 6, 5, 60, 12, 64, 12, 67, 12, 72, 12, 72, 36])
-        self.register_beep(7, 
+        # self.send_command([140, 4, 2, 67, 12, 67, 36])
+        # self.send_command([140, 5, 2, 72, 12, 72, 36])
+        # self.send_command([140, 6, 5, 60, 12, 64, 12, 67, 12, 72, 12, 72, 36])
+        self.register_beep(4, 
             [
                 (NOTES["C"], 24),
                 (NOTES["C"], 24),
@@ -283,7 +283,7 @@ class iRobotInterface:
                 (NOTES["D"], 24),
                 (NOTES["C"], 48)
             ])
-        self.send_command([140, 8, 19,
+        self.send_command([140, 5, 19,
             NOTES["C"], 24, NOTES["REST"], 12, 
             NOTES["D"], 24, NOTES["REST"], 12, 
             NOTES["G_0"], 12, NOTES["REST"], 12, 
@@ -293,6 +293,36 @@ class iRobotInterface:
             NOTES["C"], 24, NOTES["REST"], 12, 
             NOTES["D"], 24, NOTES["REST"], 12, 
             NOTES["G_0"], 36 
+            ])
+        
+        self.register_beep(6, 
+            [
+                (NOTES["C"], 24),
+                (NOTES["C"], 24),
+                (NOTES["C"], 12),
+                (NOTES["D"], 12),
+                (NOTES["E"], 12), (NOTES["REST"], 12),
+                (NOTES["E"], 12),
+                (NOTES["D"], 12),
+                (NOTES["E"], 12),
+                (NOTES["F"], 12),
+                (NOTES["G"], 12)
+            ])
+        
+        self.register_beep(7, 
+            [
+                (NOTES["C_1"], 12),
+                (NOTES["C_1"], 12),
+                (NOTES["G"], 12),
+                (NOTES["G"], 12),
+                (NOTES["E"], 12), 
+                (NOTES["E"], 12),
+                (NOTES["C"], 12), (NOTES["REST"], 12),
+                (NOTES["G"], 12),
+                (NOTES["F"], 12),
+                (NOTES["E"], 12),
+                (NOTES["D"], 12),
+                (NOTES["C"], 12)
             ])
         #self.send_command([140 0 4 62 12 66 12 69 12 74 36])
 
