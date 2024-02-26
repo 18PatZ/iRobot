@@ -177,43 +177,10 @@ def send_commands():
         ser.write(bytearray(command))
     del command_queue[:]
 
-def plan(action, duration):
-    global last_action_time
-    global stages
-    stages.append({'time': last_action_time, 'action': action})
-    last_action_time += duration
 
 
 
-
-
-#
-# Connect to planner and fetch plan
-#
-plan = json.loads(planJSON) # Decode plan
-
-print("Received plan: \n")
-
-
-def getUpdate():
-    global observer
-
-    # Get update from camera (returns time interval and current x,  y, and heading)
-    data = receiveMessage(observer)
-
-    if data == "exit":
-        return (None, None, None, None)
-    splitData = data.split(" ")
-    
-    # time_int, x, y, heading
-    return int(splitData[0]), int(splitData[1]), int(splitData[2]), int(splitData[3])
-
-
-
-stage = -1
 spd = 300
-last_action_time = 0
-stages = []
 
 
 action_headings = {
