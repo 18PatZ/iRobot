@@ -326,25 +326,25 @@ while True:
 
 s = 200
 
-turn(speed = -s)
-send_commands()
-time.sleep(0.5 / 2.0)
+# turn(speed = -s)
+# send_commands()
+# time.sleep(0.5 / 2.0)
 
-turn(speed = s)
-send_commands()
-time.sleep(0.5)
+# turn(speed = s)
+# send_commands()
+# time.sleep(0.5)
 
-turn(speed = -s)
-send_commands()
-time.sleep(0.5)
+# turn(speed = -s)
+# send_commands()
+# time.sleep(0.5)
 
-turn(speed = s)
-send_commands()
-time.sleep(0.5)
+# turn(speed = s)
+# send_commands()
+# time.sleep(0.5)
 
-turn(speed = -s)
-send_commands()
-time.sleep(0.5 / 2.0)
+# turn(speed = -s)
+# send_commands()
+# time.sleep(0.5 / 2.0)
 
 stop_bot()
 send_commands()
