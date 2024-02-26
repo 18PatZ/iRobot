@@ -218,14 +218,13 @@ time.sleep(2)
 #     ["NORTH"]
 # ]
 plan = [
-    ["NORTH", "NORTH", "NORTH", "NORTH", "WEST"],
+    ["NORTH", "NORTH", "NORTH", "WEST"],
     ["NORTH", "NORTH"],
     ["NORTH", "EAST", "EAST"],
-    ["NORTH", "NORTH", "NORTH", "NORTH", "WEST"],
+    ["NORTH", "NORTH", "NORTH", "WEST"],
     ["NORTH", "NORTH", "NORTH"],
     ["NORTH", "NORTH", "WEST"],
-    ["NORTH", "NORTH", "NORTH", "EAST", "NORTH"],
-    ["SOUTH"]
+    ["NORTH", "NORTH", "EAST", "NORTH"]
 ]
 
 interval = 0
@@ -300,10 +299,19 @@ while True:
             time.sleep(time_to_turn)
         
         time_to_drive = time_step - time_to_turn # Driving takes rest of timestep
+
         dist = travel_distance
         if current_move == "NORTH" or current_move == "SOUTH":
             dist *= north_multiplier
-        drive_speed = int(dist / time_to_drive) # Set speed to reach goal at end of timestep, assumes high accel (d=st)
+            
+        if time_to_drive <= 0:
+            drive_speed = 500
+            time_to_drive = dist / drive_speed
+        else:
+            drive_speed = int(dist / time_to_drive) # Set speed to reach goal at end of timestep, assumes high accel (d=st)
+        
+        if current_move == "SOUTH":
+            drive_speed *= -1
         
         #drive(speed = drive_speed, turn_radius = random.randint(1000, 2000))
         drive(speed = drive_speed, turn_radius = None)
