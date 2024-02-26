@@ -228,6 +228,8 @@ while True:
     action_sequence = plan[interval % len(plan)]
     print("Executing sequence:", action_sequence)
 
+    interval += 1
+
     beep(1)
     send_commands()
 
