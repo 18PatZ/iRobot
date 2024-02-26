@@ -209,7 +209,7 @@ time.sleep(2)
 #        {(1,1): ["n", "w", "s", "e"]}]
 
 plan = [
-    ["NORTH", "WEST", "NORTH", "WEST", "NORTH", "WEST", "NORTH"],
+    ["NORTH", "WEST", "NORTH"],
     ["NORTH", "NORTH"],
     ["EAST"],
     ["NORTH", "EAST"],
@@ -224,6 +224,10 @@ current_heading = 0
 while True:
     if current_heading < 0:
         current_heading += 360
+
+    if interval == len(plan):
+        print("Exiting.")
+        break
 
     action_sequence = plan[interval % len(plan)]
     print("Executing sequence:", action_sequence)
