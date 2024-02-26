@@ -190,6 +190,7 @@ action_headings = {
 
 time_step = 1.5#2 # seconds
 travel_distance = 245
+north_multiplier = 2.0
 current_heading = 0
 
 start_mode()
@@ -217,13 +218,14 @@ time.sleep(2)
 #     ["NORTH"]
 # ]
 plan = [
-    ["NORTH", "NORTH", "WEST"],
+    ["NORTH", "NORTH", "NORTH", "NORTH", "WEST"],
     ["NORTH", "NORTH"],
     ["NORTH", "EAST", "EAST"],
-    ["NORTH", "NORTH", "WEST"],
+    ["NORTH", "NORTH", "NORTH", "NORTH", "WEST"],
     ["NORTH", "NORTH", "NORTH"],
     ["NORTH", "NORTH", "WEST"],
-    ["NORTH", "EAST", "NORTH"]
+    ["NORTH", "NORTH", "NORTH", "EAST", "NORTH"],
+    ["SOUTH"]
 ]
 
 interval = 0
@@ -298,7 +300,10 @@ while True:
             time.sleep(time_to_turn)
         
         time_to_drive = time_step - time_to_turn # Driving takes rest of timestep
-        drive_speed = int(travel_distance / time_to_drive) # Set speed to reach goal at end of timestep, assumes high accel (d=st)
+        dist = travel_distance
+        if current_move == "NORTH" or current_move == "SOUTH":
+            dist *= north_multiplier
+        drive_speed = int(dist / time_to_drive) # Set speed to reach goal at end of timestep, assumes high accel (d=st)
         
         #drive(speed = drive_speed, turn_radius = random.randint(1000, 2000))
         drive(speed = drive_speed, turn_radius = None)
@@ -309,5 +314,25 @@ while True:
         stop_bot()
 
         send_commands()
+
+turn(speed = -300)
+send_commands()
+time.sleep(0.5 / 2.0)
+
+turn(speed = 300)
+send_commands()
+time.sleep(0.5)
+
+turn(speed = -300)
+send_commands()
+time.sleep(0.5)
+
+turn(speed = 300)
+send_commands()
+time.sleep(0.5)
+
+turn(speed = -300)
+send_commands()
+time.sleep(0.5 / 2.0)
 
 ser.close()
