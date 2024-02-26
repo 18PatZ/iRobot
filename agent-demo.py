@@ -210,12 +210,11 @@ time.sleep(2)
 
 plan = [
     ["NORTH", "WEST", "NORTH"],
-    ["NORTH", "NORTH"],
-    ["EAST"],
-    ["NORTH", "EAST"],
-    ["SOUTH", "EAST", "SOUTH", "SOUTH"],
+    ["NORTH", "NORTH", "NORTH"],
+    ["EAST", "EAST"],
+    ["SOUTH", "SOUTH", "SOUTH"],
     ["SOUTH", "EAST", "SOUTH"],
-    ["WEST", "WEST", "WEST"],
+    ["WEST", "WEST"],
 ]
 
 interval = 0
