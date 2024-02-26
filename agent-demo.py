@@ -190,7 +190,7 @@ action_headings = {
     "SOUTH": 180
 }
 
-time_step = 2 # seconds
+time_step = 1.5#2 # seconds
 travel_distance = 245
 current_heading = 0
 
