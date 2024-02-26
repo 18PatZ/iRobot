@@ -179,9 +179,7 @@ def send_commands():
 
 
 
-
-spd = 300
-
+doBeep = False
 
 action_headings = {
     "NORTH": 0,
@@ -197,7 +195,8 @@ current_heading = 0
 start_mode()
 safe_mode()
 register_beeps()
-beep(0)
+if doBeep:
+    beep(0)
 send_commands()
 
 time.sleep(2)
@@ -208,14 +207,23 @@ time.sleep(2)
 #        {(2,0): ["n", "e"], (1, 0): ["o", "e"]},
 #        {(1,1): ["n", "w", "s", "e"]}]
 
+# plan = [
+#     ["NORTH", "WEST", "NORTH"],
+#     ["NORTH", "NORTH", "NORTH"],
+#     ["EAST", "EAST"],
+#     ["SOUTH", "SOUTH", "SOUTH"],
+#     ["SOUTH", "SOUTH", "SOUTH"],
+#     ["WEST", "WEST"],
+#     ["NORTH"]
+# ]
 plan = [
-    ["NORTH", "WEST", "NORTH"],
+    ["NORTH", "NORTH", "WEST"],
+    ["NORTH", "NORTH"],
+    ["NORTH", "EAST", "EAST"],
+    ["NORTH", "NORTH", "WEST"],
     ["NORTH", "NORTH", "NORTH"],
-    ["EAST", "EAST"],
-    ["SOUTH", "SOUTH", "SOUTH"],
-    ["SOUTH", "SOUTH", "SOUTH"],
-    ["WEST", "WEST"],
-    ["NORTH"]
+    ["NORTH", "NORTH", "WEST"],
+    ["NORTH", "EAST", "NORTH"]
 ]
 
 interval = 0
@@ -234,8 +242,9 @@ while True:
 
     interval += 1
 
-    beep(1)
-    send_commands()
+    if doBeep:
+        beep(1)
+        send_commands()
 
     firstMove = True
     # Perform each movement in the selected policy
@@ -246,8 +255,9 @@ while True:
         print("  EXECUTING",current_move)
 
         if not firstMove:
-            beep(3)
-            send_commands()
+            if doBeep:
+                beep(3)
+                send_commands()
         else:
             firstMove = False
 
