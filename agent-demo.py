@@ -190,7 +190,7 @@ action_headings = {
 
 time_step = 1.5#2 # seconds
 travel_distance = 245
-north_multiplier = 2.0
+north_multiplier = 2.5
 current_heading = 0
 
 start_mode()
@@ -224,7 +224,8 @@ plan = [
     # ["NORTH", "NORTH", "NORTH", "WEST"],
     # ["NORTH", "NORTH", "NORTH"],
     ["NORTH", "NORTH", "WEST"],
-    ["NORTH", "NORTH", "EAST", "NORTH"]
+    ["NORTH", "NORTH", "EAST", "NORTH"],
+    ["SOUTH"]
 ]
 
 interval = 0
@@ -323,24 +324,29 @@ while True:
 
         send_commands()
 
-turn(speed = -300)
+s = 200
+
+turn(speed = -s)
 send_commands()
 time.sleep(0.5 / 2.0)
 
-turn(speed = 300)
+turn(speed = s)
 send_commands()
 time.sleep(0.5)
 
-turn(speed = -300)
+turn(speed = -s)
 send_commands()
 time.sleep(0.5)
 
-turn(speed = 300)
+turn(speed = s)
 send_commands()
 time.sleep(0.5)
 
-turn(speed = -300)
+turn(speed = -s)
 send_commands()
 time.sleep(0.5 / 2.0)
+
+stop_bot()
+send_commands()
 
 ser.close()
