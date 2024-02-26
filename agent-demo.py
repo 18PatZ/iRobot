@@ -213,8 +213,9 @@ plan = [
     ["NORTH", "NORTH", "NORTH"],
     ["EAST", "EAST"],
     ["SOUTH", "SOUTH", "SOUTH"],
-    ["SOUTH", "EAST", "SOUTH"],
+    ["SOUTH", "SOUTH", "SOUTH"],
     ["WEST", "WEST"],
+    ["NORTH"]
 ]
 
 interval = 0
