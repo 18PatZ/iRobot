@@ -274,9 +274,9 @@ while True:
         #degreesPerSecond = turn_speed / 154 * 180/math.pi
         #time_to_turn = abs(degreesToTurn / degreesPerSecond)
         time_to_turn = abs(degreesToTurn / 154)#120.0)
-        print("Turning from " + str(current_heading) + " to " + str(new_heading) + ". (" + str(degreesToTurn) + ")degrees. " + str(time_to_turn) + "s turn.")
+        if abs(degreesToTurn) >= 1:
+            print("Turning from " + str(current_heading) + " to " + str(new_heading) + ". (" + str(degreesToTurn) + ")degrees. " + str(time_to_turn) + "s turn.")
 
-        if time_to_turn >= 1:
             turn(speed = turn_speed)
             current_heading = new_heading
             send_commands()
