@@ -221,8 +221,8 @@ plan = [
     ["NORTH", "NORTH", "NORTH", "WEST"],
     ["NORTH", "NORTH"],
     ["NORTH", "EAST", "EAST"],
-    ["NORTH", "NORTH", "NORTH", "WEST"],
-    ["NORTH", "NORTH", "NORTH"],
+    # ["NORTH", "NORTH", "NORTH", "WEST"],
+    # ["NORTH", "NORTH", "NORTH"],
     ["NORTH", "NORTH", "WEST"],
     ["NORTH", "NORTH", "EAST", "NORTH"]
 ]
