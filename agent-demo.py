@@ -239,6 +239,8 @@ while True:
         # Advance through the policy
         current_move, action_sequence = action_sequence[0], action_sequence[1:]
 
+        print("  EXECUTING",current_move)
+
         if not firstMove:
             beep(3)
             send_commands()
@@ -271,7 +273,7 @@ while True:
         turn_speed = 300 * (-1 if(degreesToTurn < 0) else 1) # need to make negative if turning other way
         #degreesPerSecond = turn_speed / 154 * 180/math.pi
         #time_to_turn = abs(degreesToTurn / degreesPerSecond)
-        time_to_turn = abs(degreesToTurn / 120.0)
+        time_to_turn = abs(degreesToTurn / 120)#120.0)
         print("Turning from " + str(current_heading) + " to " + str(new_heading) + ". (" + str(degreesToTurn) + ")degrees. " + str(time_to_turn) + "s turn.")
 
 
