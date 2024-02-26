@@ -209,7 +209,7 @@ time.sleep(2)
 #        {(1,1): ["n", "w", "s", "e"]}]
 
 plan = [
-    ["NORTH", "WEST", "NORTH"],
+    ["NORTH", "WEST", "NORTH", "WEST", "NORTH", "WEST", "NORTH"],
     ["NORTH", "NORTH"],
     ["EAST"],
     ["NORTH", "EAST"],
@@ -273,15 +273,15 @@ while True:
         turn_speed = 300 * (-1 if(degreesToTurn < 0) else 1) # need to make negative if turning other way
         #degreesPerSecond = turn_speed / 154 * 180/math.pi
         #time_to_turn = abs(degreesToTurn / degreesPerSecond)
-        time_to_turn = abs(degreesToTurn / 120)#120.0)
+        time_to_turn = abs(degreesToTurn / 154)#120.0)
         print("Turning from " + str(current_heading) + " to " + str(new_heading) + ". (" + str(degreesToTurn) + ")degrees. " + str(time_to_turn) + "s turn.")
 
+        if time_to_turn >= 1:
+            turn(speed = turn_speed)
+            current_heading = new_heading
+            send_commands()
 
-        turn(speed = turn_speed)
-        current_heading = new_heading
-        send_commands()
-
-        time.sleep(time_to_turn)
+            time.sleep(time_to_turn)
         
         time_to_drive = time_step - time_to_turn # Driving takes rest of timestep
         drive_speed = int(travel_distance / time_to_drive) # Set speed to reach goal at end of timestep, assumes high accel (d=st)
